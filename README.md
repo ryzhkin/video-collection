@@ -1,13 +1,26 @@
 # Local Video Library
 
-A lightweight local video library with:
+Turn your local folder of videos into a clean, fast, personal streaming space in seconds 🚀
+
+No heavy media server setup. No complex dashboard. Just run one command and start watching from desktop or phone 📱💻
+
+### Why you'll like it ✨
+
+- Instant local streaming with a polished web UI
+- Smart resume playback and watched progress tracking
+- Built-in thumbnail generation and folder previews
+- Useful metadata right in the list (`duration • resolution • size`)
+- Lightweight scripts for indexing, downloading, and converting videos
+
+Whether it is your favorite sitcom archive, learning videos, or random clips, this project makes your library feel alive and easy to navigate 🎬
+
+### Included out of the box
+
 - recursive media indexing (`lib.json`)
 - static web UI (`index.html`)
 - local HTTP serving (`run`)
 - optional public tunnel via ngrok
 - helper scripts for downloading/converting videos
-
-This project is optimized for home/local usage and mobile playback.
 
 ## Requirements
 
@@ -132,4 +145,3 @@ At root breadcrumb (`Library` as current item):
   - install ffmpeg and re-run conversion/download scripts
 - thumbnails look stale:
   - use the hidden triple-click root action to clear thumbnail cache
-
