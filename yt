@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Check if youtube-dl is installed
+if ! command -v youtube-dl &> /dev/null; then
+    echo "youtube-dl is not installed. Please install it first."
+    exit 1
+fi
+
+# Check if ffmpeg is installed
+if ! command -v ffmpeg &> /dev/null; then
+    echo "ffmpeg is not installed. Please install it first."
+    exit 1
+fi
+
+# Check if the script was provided with a URL
+if [ -z "$1" ]; then
+    echo "Usage: $0 <youtube-url>"
+    exit 1
+fi
+
+# Create the youtube/ directory if it doesn't exist
+mkdir -p "youtube"
+
+# Download the video
+#youtube-dl -f 'bestvideo[height<=480]+bestaudio/best[height<=480]/mp4/mp4' -o "youtube/%(title)s.mp4" "$1"
+#youtube-dl -f 'bestvideo[height<=480]+bestaudio/best[height<=480]/mp4' -o "youtube/%(title)s.mp4" "$1"
+youtube-dl -f 'bestvideo[height<=480]+bestaudio/best[height<=480]' -o "youtube/%(title)s.%(ext)s" "$1"
+
+
+
+# Run the convert-mkv script if it exists
+if [ -f "youtube/convert-mkv" ]; then
+    cd youtube
+#    ./convert-mkv
+    cd ..
+fi
+
+

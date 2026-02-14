@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <style>
+        :root {
+            --bg: #f3efe7;
+            --bg-accent: #ece6d9;
+            --surface: #fffdf8;
+            --surface-strong: #fffaf0;
+            --ink: #1d2730;
+            --muted: #5d6871;
+            --border: #d9d1c1;
+            --teal: #14766f;
+            --teal-soft: #d6f2ef;
+            --folder-bg: #f6e7d1;
+            --video-bg: #e7effa;
+            --shadow: 0 6px 16px rgba(18, 29, 38, 0.08);
+            --radius: 10px;
+            --card-radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at 12% 8%, rgba(20, 118, 111, 0.09), transparent 22%),
+                radial-gradient(circle at 88% 12%, rgba(40, 98, 166, 0.08), transparent 24%),
+                linear-gradient(160deg, var(--bg), var(--bg-accent));
+        }
+
+        .container {
+            width: min(1080px, 100%);
+            margin: 0 auto;
+            padding: 20px 14px 28px;
+        }
+
+        .library-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(255, 253, 248, 0.9);
+            backdrop-filter: blur(6px);
+            box-shadow: var(--shadow);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toolbar-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-row.controls {
+            align-items: stretch;
+        }
+
+        .breadcrumb {
+            flex: 1 1 260px;
+            min-width: 0;
+            font-size: 0.95rem;
+            color: var(--muted);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .btn {
+            border: 1px solid var(--border);
+            border-radius: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-size: 0.88rem;
+            line-height: 1;
+            font-weight: 600;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            border-color: #c7beae;
+        }
+
+        .btn.accent {
+            background: linear-gradient(135deg, var(--teal-soft), #eef7f6);
+            border-color: #9fcfc8;
+            color: #0d4f4a;
+        }
+
+        .search-input, .filter-select {
+            border: 1px solid var(--border);
+            border-radius: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font: inherit;
+            min-height: 34px;
+        }
+
+        .search-input {
+            flex: 1 1 0;
+            padding: 0 10px;
+        }
+
+        .search-input:focus, .filter-select:focus {
+            outline: 2px solid rgba(20, 118, 111, 0.22);
+            outline-offset: 1px;
+        }
+
+        .filter-select {
+            flex: 0 0 200px;
+            padding: 0 8px;
+        }
+
+        .cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 14px;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-1px);
+            border-color: #c8c0b1;
+        }
+
+        .folder {
+            background:
+                radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.42), transparent 36%),
+                linear-gradient(155deg, #f7ead6 0%, #f2dfbf 58%, #ebd4ab 100%);
+            border-color: #d2be99;
+        }
+
+        .video {
+            background: linear-gradient(135deg, var(--video-bg), #f0f5fd);
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .video-card-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .video-card-info {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .card-thumb {
+            position: relative;
+            flex: 0 0 132px;
+            height: 82px;
+            border: 1px solid #c8d2e1;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #d7dfea, #e8eef7);
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        .thumb-status {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            text-align: center;
+            padding: 6px;
+            color: #2a3746;
+            pointer-events: none;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+
+        .thumb-status-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .thumb-status-percent {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #405062;
+        }
+
+        .card-thumb::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent 10%, rgba(255, 255, 255, 0.35) 35%, transparent 60%);
+            animation: thumb-pulse 1.5s infinite linear;
+        }
+
+        .card-thumb.ready::after,
+        .card-thumb.error::after {
+            display: none;
+        }
+
+        .card-thumb.error {
+            background: linear-gradient(135deg, #d9dfeb, #e6eaf2);
+        }
+
+        @keyframes thumb-pulse {
+            from {
+                transform: translateX(-100%);
+            }
+            to {
+                transform: translateX(100%);
+            }
+        }
+
+        .resume-label {
+            margin: 7px 0 0;
+            color: #21599d;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .progress-track {
+            margin-top: 8px;
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(33, 89, 157, 0.15);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #2d72c7, #4ca0ee);
+        }
+
+        .progress-meta {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .video-meta-line {
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: #52616f;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .video-last-watched {
+            margin-top: 4px;
+            font-size: 0.78rem;
+            color: #617180;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: var(--card-radius);
+            background: rgba(255, 253, 248, 0.7);
+            color: var(--muted);
+            text-align: center;
+            padding: 20px 14px;
+        }
+
+        .folder-meta {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.84rem;
+            font-weight: 500;
+        }
+
+        .folder-progress-meta {
+            margin-top: 5px;
+            color: #4e5b66;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .folder-progress-track {
+            margin-top: 5px;
+            width: 100%;
+            height: 4px;
+            border-radius: 999px;
+            background: rgba(20, 118, 111, 0.15);
+            overflow: hidden;
+        }
+
+        .folder-progress-fill {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #1f9289, #45b6ad);
+        }
+
+        .folder-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .folder-info {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .folder-preview {
+            position: relative;
+            flex: 0 0 132px;
+            height: 82px;
+            border: 1px solid #cdb792;
+            border-radius: 6px;
+            background: linear-gradient(140deg, #e8dac0, #f2e7d3);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            padding: 2px;
+        }
+
+        .folder-preview.empty::before {
+            content: 'No cached previews';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #6f5f46;
+            background: linear-gradient(140deg, rgba(236, 224, 199, 0.88), rgba(246, 238, 223, 0.9));
+            z-index: 2;
+            text-align: center;
+            padding: 4px;
+        }
+
+        .folder-preview-tile {
+            position: relative;
+            border-radius: 4px;
+            background: linear-gradient(130deg, #d9c8ab, #ebdfca);
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        .folder-preview-tile.main {
+            grid-row: 1 / span 2;
+        }
+
+        .folder-preview-tile::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent 12%, rgba(255, 255, 255, 0.28) 42%, transparent 72%);
+            animation: thumb-pulse 1.5s infinite linear;
+        }
+
+        .folder-preview-tile.ready::after,
+        .folder-preview-tile.error::after {
+            display: none;
+        }
+
+        .crumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            font-size: 0.92rem;
+            line-height: 1.25;
+        }
+
+        .crumb-btn {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--teal);
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .crumb-btn:hover {
+            text-decoration: underline;
+        }
+
+        .crumb-sep {
+            color: #98a2ab;
+        }
+
+        .crumb-current {
+            color: var(--ink);
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+
+        .crumb-wrap {
+            flex: 1 1 280px;
+            min-width: 0;
+        }
+
+        .toolbar-meta {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            width: min(1080px, 100%);
+            margin: 0 auto;
+            padding: 12px 14px 20px;
+            gap: 10px;
+        }
+
+        .header-links {
+            background: rgba(255, 253, 248, 0.9);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 8px;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .header-links a {
+            color: var(--ink);
+            text-decoration: none;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 0;
+            background: var(--surface);
+            padding: 8px 12px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .header-links a:hover {
+            border-color: #c7beae;
+        }
+
+        .video-wrapper {
+            display: flex;
+            flex-grow: 1;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(255, 253, 248, 0.9);
+            box-shadow: var(--shadow);
+            padding: 12px;
+        }
+
+        .video-wrapper h4 {
+            margin: 0;
+            padding: 2px 4px 0;
+            letter-spacing: 0.01em;
+            font-size: 0.98rem;
+            color: var(--muted);
+            overflow-wrap: anywhere;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            max-height: 74vh;
+            background: #111;
+            border-radius: 12px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+            margin-top: 2px;
+        }
+
+        .footer-links a {
+            color: var(--ink);
+            text-decoration: none;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 0;
+            background: var(--surface);
+            padding: 8px 12px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .footer-links a:hover {
+            border-color: #c7beae;
+        }
+
+        @media (max-width: 760px) {
+            .container, .video-container {
+                padding: 12px 10px 18px;
+            }
+
+            .toolbar, .video-wrapper, .header-links {
+                border-radius: 8px;
+            }
+
+            .toolbar-row.controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-input, .filter-select {
+                width: 100%;
+                flex: 1 1 auto;
+            }
+
+            .btn, .header-links a, .footer-links a {
+                min-height: 36px;
+                padding: 8px 10px;
+                font-size: 0.86rem;
+            }
+
+            .video-card-layout {
+                gap: 10px;
+            }
+
+            .card-thumb {
+                flex-basis: 108px;
+                height: 68px;
+            }
+
+            .folder-layout {
+                gap: 10px;
+            }
+
+            .folder-preview {
+                flex-basis: 108px;
+                height: 68px;
+            }
+
+            .header-links {
+                flex-wrap: wrap;
+                align-items: stretch;
+            }
+
+            .video-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+
+            .header-links a {
+                flex: 1 1 50%;
+                text-align: center;
+            }
+
+            .footer-links {
+                justify-content: stretch;
+            }
+
+            .footer-links a {
+                flex: 1 1 50%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="video-list" class="container">
+  ...
+</div>
+
+<div id="video-container" class="video-container" style="display: none;">
+    <div class="header-links">
+        <div id="video-breadcrumb" class="crumb-wrap"></div>
+        <div class="video-actions">
+            <a id="video-back">&larr; Back</a>
+            <a id="video-random">Random</a>
+        </div>
+    </div>
+    <div class="video-wrapper">
+        <h4 id="video-title">...</h4>
+        <video id="video-player" src="" controls preload="auto"></video>
+        <div class="footer-links">
+            <a id="video-prev">&larr; Prev</a>
+            <a id="video-next">Next &rarr;</a>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    function setHash(hash) {
+        window.location.hash = encodeURIComponent(hash);
+    }
+    function getHash() {
+        return decodeURIComponent(window.location.hash).substring(1);
+    }
+    function create_el(tag, classes = '', attrs = {}, listeners = {}, html = '') {
+        const element = document.createElement(tag);
+
+        // Add classes
+        const classNames = classes
+            .split(' ')
+            .map((className) => className.trim())
+            .filter(Boolean);
+        if (classNames.length > 0) {
+            element.classList.add(...classNames);
+        }
+
+        // Add attributes
+        for (const [attrName, attrValue] of Object.entries(attrs)) {
+            element.setAttribute(attrName, attrValue);
+        }
+
+        // Add event listeners
+        for (const [eventName, listener] of Object.entries(listeners)) {
+            element.addEventListener(eventName, listener);
+        }
+
+        // Set inner HTML
+        element.innerHTML = html;
+
+        return element;
+    }
+    function set_el(selector, options = {}) {
+        const element = document.querySelector(selector);
+        if (!element) {
+            console.warn(`Element not found for selector: ${selector}`);
+            return;
+        }
+        // Set attributes
+        if (options.attributes) {
+            for (const [key, value] of Object.entries(options.attributes)) {
+                element.setAttribute(key, value);
+            }
+        }
+        // Set event handlers
+        if (options.events) {
+            // Remove previous event listeners
+            const events = Object.keys(options.events);
+            for (const event of events) {
+                const oldHandlers = element[`_${event}Handlers`] || [];
+                oldHandlers.forEach((handler) => {
+                    element.removeEventListener(event, handler);
+                });
+            }
+
+            // Add new event handlers
+            for (const [event, handler] of Object.entries(options.events)) {
+                element.addEventListener(event, handler);
+                element[`_${event}Handlers`] = element[`_${event}Handlers`] || [];
+                element[`_${event}Handlers`].push(handler);
+            }
+        }
+
+        // Set styles
+        if (options.styles) {
+            for (const [key, value] of Object.entries(options.styles)) {
+                element.style[key] = value;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(options, 'html')) {
+           element.innerHTML = options.html;
+        }
+    }
+    function escapeHtml(input = '') {
+        return String(input)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    function getObjectValByKeyPath(obj, path) {
+        if (!path) return obj;
+        path = path.startsWith("/") ? path.substring(1) : path;
+        if (!path) return obj;
+        const keys = path.split('/');
+        let current = obj;
+        for (const key of keys) {
+            if (current[key] === undefined) {
+                return undefined;
+            }
+            current = current[key];
+        }
+        return current;
+    }
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    function getRandomObjectKey(obj) {
+        const keys = Object.keys(obj);
+        if (keys.length === 0) return null;
+        return keys[getRandomInt(0, keys.length - 1)];
+    }
+    function getRandomObjectPath(obj) {
+        let path = getRandomObjectKey(obj);
+        if (!path) return null;
+        if (obj[path] === null) {
+          return path;
+        } else {
+          const childPath = getRandomObjectPath(obj[path]);
+          if (!childPath) return null;
+          return path + '/' + childPath;
+        }
+    }
+    async function loadJsonFile(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Fetching data failed:', error);
+            throw error;
+        }
+    }
+    function joinPath(basePath, childName) {
+        return basePath ? `${basePath}/${childName}` : childName;
+    }
+    function compareNames(a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    function createBreadcrumb(path, options = {}) {
+        const { lastSegmentClickable = false } = options;
+        const safePath = (path || '').startsWith('/') ? path.substring(1) : (path || '');
+        const parts = safePath ? safePath.split('/') : [];
+        const crumb = create_el('div', 'crumbs');
+
+        const rootIsCurrent = parts.length === 0;
+        if (rootIsCurrent) {
+            crumb.appendChild(create_el('span', 'crumb-current', {}, {
+                click: () => {
+                    maybeHandleLibraryRootTripleTap();
+                }
+            }, 'Library'));
+        } else {
+            crumb.appendChild(create_el('button', 'crumb-btn', { type: 'button' }, {
+                click: () => setHash('')
+            }, 'Library'));
+        }
+
+        for (let i = 0; i < parts.length; i += 1) {
+            const part = parts[i];
+            const isLast = i === parts.length - 1;
+            const partPath = parts.slice(0, i + 1).join('/');
+            crumb.appendChild(create_el('span', 'crumb-sep', {}, {}, '/'));
+            if (isLast && !lastSegmentClickable) {
+                crumb.appendChild(create_el('span', 'crumb-current', {}, {}, escapeHtml(part)));
+            } else {
+                crumb.appendChild(create_el('button', 'crumb-btn', { type: 'button' }, {
+                    click: () => setHash(partPath)
+                }, escapeHtml(part)));
+            }
+        }
+
+        return crumb;
+    }
+    function pluralize(count, singular, plural) {
+        if (count === 1) return singular;
+        return plural || `${singular}s`;
+    }
+
+    const THUMB_DB_NAME = 'video-thumbnails-v1';
+    const THUMB_STORE_NAME = 'thumbs';
+    const THUMB_KEY_PREFIX = 'thumb-v2:';
+    const THUMB_OBSERVER_MARGIN = '260px 0px';
+    const FOLDER_PREVIEW_LIMIT = 3;
+    const THUMB_PROFILES = {
+        small: { name: 'sm', width: 160, height: 90, quality: 0.68 },
+        large: { name: 'lg', width: 320, height: 180, quality: 0.78 }
+    };
+
+    let thumbnailDbPromise = null;
+    let folderPreviewObserver = null;
+    let thumbnailGenerationQueue = Promise.resolve();
+    let activeThumbnailScheduleId = 0;
+    let videoMetaProbeQueue = Promise.resolve();
+    let activeVideoMetaScheduleId = 0;
+    let libraryRootTapCount = 0;
+    let libraryRootTapTimer = null;
+    const thumbnailUrlByPath = new Map();
+    const thumbnailPendingByPath = new Map();
+    const cachedThumbnailReadPendingByPath = new Map();
+    const videoMetaProbePendingByPath = new Map();
+
+    function isSmallScreenForThumbnails() {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+        return window.matchMedia('(max-width: 760px)').matches;
+    }
+    function getActiveThumbnailProfile() {
+        return isSmallScreenForThumbnails() ? THUMB_PROFILES.small : THUMB_PROFILES.large;
+    }
+    function getAlternateThumbnailProfile(profile) {
+        if (profile.name === THUMB_PROFILES.small.name) return THUMB_PROFILES.large;
+        return THUMB_PROFILES.small;
+    }
+    function getThumbnailPendingKey(videoPath, profile) {
+        return `${profile.name}:${videoPath}`;
+    }
+    function getThumbnailCacheKey(videoPath, profile) {
+        return `${THUMB_KEY_PREFIX}${profile.name}:${videoPath}`;
+    }
+    async function clearThumbnailCacheStore() {
+        const db = await getThumbnailDb();
+        if (!db) return;
+        await new Promise((resolve) => {
+            try {
+                const transaction = db.transaction(THUMB_STORE_NAME, 'readwrite');
+                transaction.objectStore(THUMB_STORE_NAME).clear();
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => resolve();
+            } catch (error) {
+                console.warn('Clear thumbnail cache failed:', error);
+                resolve();
+            }
+        });
+    }
+    async function clearThumbnailCacheEverywhere() {
+        activeThumbnailScheduleId += 1;
+        if (folderPreviewObserver) {
+            folderPreviewObserver.disconnect();
+            folderPreviewObserver = null;
+        }
+        releaseThumbnailObjectUrls();
+        thumbnailPendingByPath.clear();
+        cachedThumbnailReadPendingByPath.clear();
+        thumbnailGenerationQueue = Promise.resolve();
+        await clearThumbnailCacheStore();
+    }
+    async function maybeHandleLibraryRootTripleTap() {
+        libraryRootTapCount += 1;
+        if (libraryRootTapTimer) clearTimeout(libraryRootTapTimer);
+
+        libraryRootTapTimer = setTimeout(() => {
+            libraryRootTapCount = 0;
+            libraryRootTapTimer = null;
+        }, 900);
+
+        if (libraryRootTapCount < 3) return;
+
+        libraryRootTapCount = 0;
+        if (libraryRootTapTimer) {
+            clearTimeout(libraryRootTapTimer);
+            libraryRootTapTimer = null;
+        }
+
+        const confirmed = window.confirm('Clear thumbnail cache?');
+        if (!confirmed) return;
+
+        await clearThumbnailCacheEverywhere();
+        renderData(getHash(), false);
+    }
+    function getThumbnailQueueGapMs() {
+        return isSmallScreenForThumbnails() ? 90 : 45;
+    }
+    function getVideoMetaQueueGapMs() {
+        return isSmallScreenForThumbnails() ? 70 : 35;
+    }
+    function enqueueThumbnailGeneration(task) {
+        const queuedTask = thumbnailGenerationQueue
+            .then(async () => {
+                try {
+                    return await task();
+                } finally {
+                    // Leave a short gap so the browser can release decode/memory pressure.
+                    await waitMs(getThumbnailQueueGapMs());
+                }
+            });
+        thumbnailGenerationQueue = queuedTask.then(
+            () => undefined,
+            () => undefined
+        );
+        return queuedTask;
+    }
+    function enqueueVideoMetaProbe(task) {
+        const queuedTask = videoMetaProbeQueue
+            .then(async () => {
+                try {
+                    return await task();
+                } finally {
+                    await waitMs(getVideoMetaQueueGapMs());
+                }
+            });
+        videoMetaProbeQueue = queuedTask.then(
+            () => undefined,
+            () => undefined
+        );
+        return queuedTask;
+    }
+    function getThumbnailDb() {
+        if (!('indexedDB' in window)) return Promise.resolve(null);
+        if (thumbnailDbPromise) return thumbnailDbPromise;
+
+        thumbnailDbPromise = new Promise((resolve) => {
+            const request = indexedDB.open(THUMB_DB_NAME, 1);
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains(THUMB_STORE_NAME)) {
+                    db.createObjectStore(THUMB_STORE_NAME, { keyPath: 'key' });
+                }
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => {
+                console.warn('Thumbnail DB is unavailable:', request.error);
+                resolve(null);
+            };
+        });
+
+        return thumbnailDbPromise;
+    }
+    async function readThumbnailBlob(videoPath, profile) {
+        const db = await getThumbnailDb();
+        if (!db) return null;
+        return new Promise((resolve) => {
+            try {
+                const transaction = db.transaction(THUMB_STORE_NAME, 'readonly');
+                const request = transaction.objectStore(THUMB_STORE_NAME).get(getThumbnailCacheKey(videoPath, profile));
+                request.onsuccess = () => {
+                    const row = request.result;
+                    if (!row || !row.blob) resolve(null);
+                    else resolve(row.blob);
+                };
+                request.onerror = () => resolve(null);
+            } catch (error) {
+                console.warn('Read thumbnail cache failed:', error);
+                resolve(null);
+            }
+        });
+    }
+    async function writeThumbnailBlob(videoPath, profile, blob) {
+        const db = await getThumbnailDb();
+        if (!db) return;
+        await new Promise((resolve) => {
+            try {
+                const transaction = db.transaction(THUMB_STORE_NAME, 'readwrite');
+                transaction.objectStore(THUMB_STORE_NAME).put({
+                    key: getThumbnailCacheKey(videoPath, profile),
+                    blob,
+                    updatedAt: Date.now()
+                });
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => resolve();
+            } catch (error) {
+                console.warn('Write thumbnail cache failed:', error);
+                resolve();
+            }
+        });
+    }
+    function waitForMediaEvent(target, eventName, timeoutMs) {
+        return new Promise((resolve, reject) => {
+            let timer = null;
+            const cleanup = () => {
+                target.removeEventListener(eventName, onSuccess);
+                target.removeEventListener('error', onError);
+                if (timer) clearTimeout(timer);
+            };
+            const onSuccess = () => {
+                cleanup();
+                resolve();
+            };
+            const onError = () => {
+                cleanup();
+                reject(new Error(`Media event error: ${eventName}`));
+            };
+
+            target.addEventListener(eventName, onSuccess, { once: true });
+            target.addEventListener('error', onError, { once: true });
+            timer = setTimeout(() => {
+                cleanup();
+                reject(new Error(`Media event timeout: ${eventName}`));
+            }, timeoutMs);
+        });
+    }
+    function waitMs(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    async function waitForRenderedFrame(video, timeoutMs = 1400) {
+        if (typeof video.requestVideoFrameCallback === 'function') {
+            await new Promise((resolve, reject) => {
+                let timer = null;
+                const cleanup = () => {
+                    if (timer) clearTimeout(timer);
+                };
+                const callback = () => {
+                    cleanup();
+                    resolve();
+                };
+                timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Video frame callback timeout'));
+                }, timeoutMs);
+                video.requestVideoFrameCallback(callback);
+            });
+            return;
+        }
+
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            try {
+                await waitForMediaEvent(video, 'loadeddata', Math.min(timeoutMs, 1200));
+            } catch (_) {
+                // Best effort fallback for browsers that do not provide strict media events.
+            }
+        }
+        await waitMs(90);
+    }
+    async function warmupVideoDecoder(video) {
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            try {
+                await waitForMediaEvent(video, 'loadeddata', 7000);
+            } catch (_) {
+                // Continue with best effort.
+            }
+        }
+        try {
+            const playAttempt = video.play();
+            if (playAttempt && typeof playAttempt.then === 'function') {
+                await Promise.race([
+                    playAttempt.then(() => undefined).catch(() => undefined),
+                    waitMs(280)
+                ]);
+            }
+            await waitMs(60);
+            video.pause();
+        } catch (_) {
+            // Autoplay can be blocked on some browsers, this is optional.
+        }
+    }
+    async function seekVideoTo(video, targetTime) {
+        const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+        if (duration <= 0) return;
+        const safeTarget = Math.max(0, Math.min(duration - 0.15, targetTime));
+        if (Math.abs(video.currentTime - safeTarget) >= 0.04) {
+            const seekedPromise = waitForMediaEvent(video, 'seeked', 9000);
+            video.currentTime = safeTarget;
+            await seekedPromise;
+        }
+        await waitForRenderedFrame(video);
+    }
+    function getThumbnailSeekPoints(duration) {
+        if (!Number.isFinite(duration) || duration <= 0) return [0];
+        const points = [0.12, 0.22, 0.35, 0.5, 0.68].map((ratio) => duration * ratio);
+        return points
+            .map((point) => Math.max(0.5, Math.min(duration - 0.2, point)))
+            .filter((point, index, arr) => arr.indexOf(point) === index);
+    }
+    function drawVideoCoverToCanvas(video, context, width, height) {
+        const sourceWidth = video.videoWidth || width;
+        const sourceHeight = video.videoHeight || height;
+        const scale = Math.max(width / sourceWidth, height / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const drawX = (width - drawWidth) / 2;
+        const drawY = (height - drawHeight) / 2;
+
+        context.clearRect(0, 0, width, height);
+        context.drawImage(video, drawX, drawY, drawWidth, drawHeight);
+    }
+    function isCanvasFrameUsable(context, width, height) {
+        let imageData;
+        try {
+            imageData = context.getImageData(0, 0, width, height).data;
+        } catch (error) {
+            return true;
+        }
+        const step = (width * height <= 22000) ? 34 : 24;
+        let samples = 0;
+        let luminanceSum = 0;
+        let luminanceSqSum = 0;
+
+        for (let i = 0; i < imageData.length; i += (4 * step)) {
+            const r = imageData[i];
+            const g = imageData[i + 1];
+            const b = imageData[i + 2];
+            const luminance = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+            luminanceSum += luminance;
+            luminanceSqSum += luminance * luminance;
+            samples += 1;
+        }
+
+        if (samples === 0) return true;
+        const mean = luminanceSum / samples;
+        const variance = (luminanceSqSum / samples) - (mean * mean);
+        return mean > 24 && mean < 232 && variance > 110;
+    }
+    function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.78) {
+        return new Promise((resolve) => {
+            canvas.toBlob((blob) => resolve(blob || null), type, quality);
+        });
+    }
+    async function createThumbnailBlob(videoPath, profile, onProgress) {
+        const report = (percent) => {
+            if (typeof onProgress !== 'function') return;
+            const safePercent = Math.max(1, Math.min(99, Math.round(percent)));
+            onProgress({ percent: safePercent });
+        };
+
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.crossOrigin = 'anonymous';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = profile.width;
+        canvas.height = profile.height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) return null;
+
+        try {
+            report(8);
+            const metadataPromise = waitForMediaEvent(video, 'loadedmetadata', 15000);
+            video.src = videoPath;
+            video.load();
+            await metadataPromise;
+            mergeVideoMeta(videoPath, {
+                duration: video.duration,
+                width: video.videoWidth,
+                height: video.videoHeight
+            });
+            await warmupVideoDecoder(video);
+            report(24);
+
+            const points = getThumbnailSeekPoints(video.duration);
+            const pointOffsets = [0, 0.22, -0.16];
+            const pointCount = Math.max(points.length, 1);
+            for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+                const point = points[pointIndex];
+                const pointBase = 24 + (pointIndex * (58 / pointCount));
+
+                for (let offsetIndex = 0; offsetIndex < pointOffsets.length; offsetIndex += 1) {
+                    const offset = pointOffsets[offsetIndex];
+                    const targetTime = point + offset;
+                    try {
+                        const offsetPart = (offsetIndex / Math.max(pointOffsets.length, 1)) * 14;
+                        report(pointBase + 4 + offsetPart);
+                        await seekVideoTo(video, targetTime);
+                        report(pointBase + 16 + offsetPart);
+                        drawVideoCoverToCanvas(video, context, profile.width, profile.height);
+                        const usable = isCanvasFrameUsable(context, profile.width, profile.height);
+                        if (!usable) continue;
+
+                        const blob = await canvasToBlob(canvas, 'image/jpeg', profile.quality);
+                        if (!blob) continue;
+
+                        report(94);
+                        return blob;
+                    } catch (error) {
+                        // Try next seek offset and next point.
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Thumbnail generation failed:', videoPath, error);
+        } finally {
+            try {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            } catch (_) {
+                // Ignore cleanup errors
+            }
+        }
+
+        return null;
+    }
+    async function probeIntrinsicVideoMeta(videoPath) {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.crossOrigin = 'anonymous';
+
+        try {
+            const metadataPromise = waitForMediaEvent(video, 'loadedmetadata', 12000);
+            video.src = videoPath;
+            video.load();
+            await metadataPromise;
+            return {
+                duration: Number.isFinite(video.duration) ? video.duration : null,
+                width: Number.isFinite(video.videoWidth) ? video.videoWidth : null,
+                height: Number.isFinite(video.videoHeight) ? video.videoHeight : null
+            };
+        } catch (_) {
+            return {};
+        } finally {
+            try {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            } catch (_) {
+                // ignore cleanup errors
+            }
+        }
+    }
+    async function probeVideoSizeFromHead(videoPath) {
+        try {
+            const response = await fetch(videoPath, { method: 'HEAD' });
+            if (!response.ok) return null;
+            const header = response.headers.get('content-length');
+            if (!header) return null;
+            const parsed = Number.parseInt(header, 10);
+            if (!Number.isFinite(parsed) || parsed <= 0) return null;
+            return parsed;
+        } catch (_) {
+            return null;
+        }
+    }
+    async function ensureVideoMeta(videoPath, seedMeta = {}) {
+        if (!videoPath) return {};
+        if (videoMetaProbePendingByPath.has(videoPath)) {
+            return videoMetaProbePendingByPath.get(videoPath);
+        }
+
+        const pendingPromise = enqueueVideoMetaProbe(async () => {
+            let currentMeta = getVideoMetaFromStore(loadVideoMetaStore(), videoPath);
+            const hasSeedMeta = Number.isFinite(seedMeta.duration) && seedMeta.duration > 0
+                || Number.isFinite(seedMeta.width) && seedMeta.width > 0
+                || Number.isFinite(seedMeta.height) && seedMeta.height > 0
+                || Number.isFinite(seedMeta.size) && seedMeta.size > 0;
+            if (hasSeedMeta) {
+                currentMeta = mergeVideoMeta(videoPath, seedMeta);
+            }
+            const needsIntrinsic = !(
+                Number.isFinite(currentMeta.duration) && currentMeta.duration > 0
+                && Number.isFinite(currentMeta.width) && currentMeta.width > 0
+                && Number.isFinite(currentMeta.height) && currentMeta.height > 0
+            );
+            const needsSize = !(Number.isFinite(currentMeta.size) && currentMeta.size > 0);
+
+            const updates = {};
+            if (needsIntrinsic) {
+                const intrinsic = await probeIntrinsicVideoMeta(videoPath);
+                if (Number.isFinite(intrinsic.duration) && intrinsic.duration > 0) updates.duration = intrinsic.duration;
+                if (Number.isFinite(intrinsic.width) && intrinsic.width > 0) updates.width = intrinsic.width;
+                if (Number.isFinite(intrinsic.height) && intrinsic.height > 0) updates.height = intrinsic.height;
+            }
+            if (needsSize) {
+                const size = await probeVideoSizeFromHead(videoPath);
+                if (Number.isFinite(size) && size > 0) updates.size = size;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                currentMeta = mergeVideoMeta(videoPath, updates);
+            }
+            return currentMeta;
+        });
+
+        videoMetaProbePendingByPath.set(videoPath, pendingPromise);
+        try {
+            return await pendingPromise;
+        } finally {
+            videoMetaProbePendingByPath.delete(videoPath);
+        }
+    }
+    function updateVideoMetaLineInDom(videoPath, text) {
+        const elements = document.querySelectorAll('.video-meta-line[data-video-path]');
+        for (const element of elements) {
+            if (element.getAttribute('data-video-path') === videoPath) {
+                element.textContent = text || 'Metadata loading...';
+            }
+        }
+    }
+    function scheduleVisibleVideoMetaEnrichment(videoItems) {
+        activeVideoMetaScheduleId += 1;
+        const scheduleId = activeVideoMetaScheduleId;
+
+        (async () => {
+            for (const videoData of videoItems) {
+                if (scheduleId !== activeVideoMetaScheduleId) break;
+                const freshMeta = await ensureVideoMeta(videoData.videoPath, {
+                    duration: videoData.resume.duration
+                });
+                if (scheduleId !== activeVideoMetaScheduleId) break;
+                const updatedLine = buildVideoMetaLine(freshMeta, videoData.resume);
+                if (updatedLine) {
+                    updateVideoMetaLineInDom(videoData.videoPath, updatedLine);
+                }
+            }
+        })();
+    }
+    async function getOrCreateThumbnailUrl(videoPath, options = {}) {
+        const { onProgress } = options;
+        const profile = getActiveThumbnailProfile();
+        const pendingKey = getThumbnailPendingKey(videoPath, profile);
+
+        if (thumbnailUrlByPath.has(pendingKey)) {
+            if (typeof onProgress === 'function') onProgress({ percent: 100 });
+            return thumbnailUrlByPath.get(pendingKey);
+        }
+        if (thumbnailPendingByPath.has(pendingKey)) {
+            if (typeof onProgress === 'function') onProgress({ percent: 15 });
+            return thumbnailPendingByPath.get(pendingKey);
+        }
+
+        const pendingPromise = (async () => {
+            if (typeof onProgress === 'function') onProgress({ percent: 8 });
+            const cachedBlob = await readThumbnailBlob(videoPath, profile);
+            if (cachedBlob) {
+                const cachedUrl = URL.createObjectURL(cachedBlob);
+                thumbnailUrlByPath.set(pendingKey, cachedUrl);
+                if (typeof onProgress === 'function') onProgress({ percent: 100 });
+                return cachedUrl;
+            }
+
+            if (typeof onProgress === 'function') onProgress({ percent: 12 });
+            const generatedBlob = await enqueueThumbnailGeneration(
+                () => createThumbnailBlob(videoPath, profile, onProgress)
+            );
+            if (!generatedBlob) return null;
+
+            await writeThumbnailBlob(videoPath, profile, generatedBlob);
+            const generatedUrl = URL.createObjectURL(generatedBlob);
+            thumbnailUrlByPath.set(pendingKey, generatedUrl);
+            if (typeof onProgress === 'function') onProgress({ percent: 100 });
+            return generatedUrl;
+        })();
+
+        thumbnailPendingByPath.set(pendingKey, pendingPromise);
+        try {
+            return await pendingPromise;
+        } finally {
+            thumbnailPendingByPath.delete(pendingKey);
+        }
+    }
+    async function getCachedThumbnailUrl(videoPath) {
+        const profile = getActiveThumbnailProfile();
+        const pendingKey = getThumbnailPendingKey(videoPath, profile);
+        if (thumbnailUrlByPath.has(pendingKey)) {
+            return thumbnailUrlByPath.get(pendingKey);
+        }
+        if (cachedThumbnailReadPendingByPath.has(pendingKey)) {
+            return cachedThumbnailReadPendingByPath.get(pendingKey);
+        }
+
+        const pendingPromise = (async () => {
+            let cachedBlob = await readThumbnailBlob(videoPath, profile);
+            if (!cachedBlob) {
+                const alternateProfile = getAlternateThumbnailProfile(profile);
+                cachedBlob = await readThumbnailBlob(videoPath, alternateProfile);
+            }
+            if (!cachedBlob) return null;
+            const cachedUrl = URL.createObjectURL(cachedBlob);
+            thumbnailUrlByPath.set(pendingKey, cachedUrl);
+            return cachedUrl;
+        })();
+
+        cachedThumbnailReadPendingByPath.set(pendingKey, pendingPromise);
+        try {
+            return await pendingPromise;
+        } finally {
+            cachedThumbnailReadPendingByPath.delete(pendingKey);
+        }
+    }
+    function collectFolderPreviewVideoPaths(folderPath, folderNode, limit = FOLDER_PREVIEW_LIMIT, acc = []) {
+        if (!folderNode || typeof folderNode !== 'object') return acc;
+        if (acc.length >= limit) return acc;
+
+        const entries = Object.entries(folderNode).sort(([a], [b]) => compareNames(a, b));
+        for (const [name, value] of entries) {
+            if (acc.length >= limit) break;
+            if (value === null) {
+                acc.push(joinPath(folderPath, name));
+            } else {
+                collectFolderPreviewVideoPaths(joinPath(folderPath, name), value, limit, acc);
+            }
+        }
+
+        return acc;
+    }
+    function updateFolderPreviewContainerState(previewContainer) {
+        if (!previewContainer) return;
+        const readyCount = previewContainer.querySelectorAll('.folder-preview-tile.ready').length;
+        if (readyCount > 0) {
+            previewContainer.classList.remove('empty');
+        } else {
+            previewContainer.classList.add('empty');
+        }
+    }
+    function ensureThumbStatusElement(element) {
+        let statusElement = element.querySelector('.thumb-status');
+        if (statusElement) return statusElement;
+        statusElement = create_el('div', 'thumb-status');
+        element.appendChild(statusElement);
+        return statusElement;
+    }
+    function setThumbStatus(element, title, percent = null) {
+        const statusElement = ensureThumbStatusElement(element);
+        const safeTitle = title || 'Generating...';
+        const hasPercent = Number.isFinite(percent);
+        const clampedPercent = hasPercent ? Math.max(0, Math.min(100, Math.round(percent))) : null;
+        statusElement.innerHTML = `
+            <div class="thumb-status-title">${escapeHtml(safeTitle)}</div>
+            ${hasPercent ? `<div class="thumb-status-percent">Approx. ${clampedPercent}%</div>` : ''}
+        `;
+    }
+    function clearThumbStatus(element) {
+        const statusElement = element.querySelector('.thumb-status');
+        if (statusElement) statusElement.remove();
+    }
+    async function attachCachedThumbnailToPreviewTile(tileElement) {
+        const videoPath = tileElement.getAttribute('data-video-path');
+        if (!videoPath) return;
+        if (tileElement.dataset.thumbState === 'done') return;
+        tileElement.dataset.thumbState = 'loading';
+
+        const thumbnailUrl = await getCachedThumbnailUrl(videoPath);
+        if (!tileElement.isConnected) return;
+
+        if (thumbnailUrl) {
+            tileElement.style.backgroundImage = `url("${thumbnailUrl}")`;
+            tileElement.classList.add('ready');
+            tileElement.classList.remove('error');
+        } else {
+            tileElement.classList.add('error');
+        }
+
+        tileElement.dataset.thumbState = 'done';
+        updateFolderPreviewContainerState(tileElement.closest('.folder-preview'));
+    }
+    async function attachThumbnailToElement(element, scheduleId) {
+        const videoPath = element.getAttribute('data-video-path');
+        if (!videoPath) return;
+        if (element.dataset.thumbState === 'done') return;
+        if (typeof scheduleId === 'number' && scheduleId !== activeThumbnailScheduleId) return;
+        element.dataset.thumbState = 'loading';
+        setThumbStatus(element, 'Generating...', 2);
+
+        const thumbnailUrl = await getOrCreateThumbnailUrl(videoPath, {
+            onProgress: ({ percent }) => {
+                if (typeof scheduleId === 'number' && scheduleId !== activeThumbnailScheduleId) return;
+                setThumbStatus(element, 'Generating...', percent);
+            }
+        });
+        if (!element.isConnected) return;
+        if (typeof scheduleId === 'number' && scheduleId !== activeThumbnailScheduleId) return;
+
+        if (thumbnailUrl) {
+            element.style.backgroundImage = `url("${thumbnailUrl}")`;
+            element.classList.add('ready');
+            element.classList.remove('error');
+            clearThumbStatus(element);
+        } else {
+            element.classList.add('error');
+            clearThumbStatus(element);
+        }
+
+        element.dataset.thumbState = 'done';
+    }
+    function setupThumbnailObserver() {
+        const thumbElements = Array.from(document.querySelectorAll('.card-thumb[data-video-path]'));
+        if (thumbElements.length === 0) return;
+        activeThumbnailScheduleId += 1;
+        const scheduleId = activeThumbnailScheduleId;
+
+        (async () => {
+            for (const element of thumbElements) {
+                if (scheduleId !== activeThumbnailScheduleId) break;
+                if (!element.isConnected) continue;
+                await attachThumbnailToElement(element, scheduleId);
+            }
+        })();
+    }
+    function setupFolderPreviewObserver() {
+        if (folderPreviewObserver) {
+            folderPreviewObserver.disconnect();
+            folderPreviewObserver = null;
+        }
+
+        const previewTiles = Array.from(document.querySelectorAll('.folder-preview-tile[data-video-path]'));
+        if (previewTiles.length === 0) return;
+
+        if (!('IntersectionObserver' in window)) {
+            previewTiles.forEach((tile) => {
+                attachCachedThumbnailToPreviewTile(tile);
+            });
+            return;
+        }
+
+        folderPreviewObserver = new IntersectionObserver((entries, observer) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+                observer.unobserve(entry.target);
+                attachCachedThumbnailToPreviewTile(entry.target);
+            }
+        }, {
+            root: null,
+            rootMargin: THUMB_OBSERVER_MARGIN,
+            threshold: 0.01
+        });
+
+        previewTiles.forEach((tile) => {
+            folderPreviewObserver.observe(tile);
+        });
+    }
+    function releaseThumbnailObjectUrls() {
+        thumbnailUrlByPath.forEach((url) => {
+            URL.revokeObjectURL(url);
+        });
+        thumbnailUrlByPath.clear();
+    }
+
+    const RESUME_STORAGE_KEY = 'video-resume-v1';
+    const WATCHED_STORAGE_KEY = 'video-watched-v1';
+    const VIDEO_META_STORAGE_KEY = 'video-meta-v1';
+    const RESUME_SAVE_INTERVAL_MS = 5000;
+    const RESUME_MIN_SECONDS = 5;
+    const RESUME_END_THRESHOLD_SECONDS = 20;
+
+    function loadResumeStore() {
+        try {
+            const raw = localStorage.getItem(RESUME_STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (error) {
+            console.warn('Failed to load resume store:', error);
+            return {};
+        }
+    }
+    function saveResumeStore(store) {
+        try {
+            localStorage.setItem(RESUME_STORAGE_KEY, JSON.stringify(store));
+        } catch (error) {
+            console.warn('Failed to save resume store:', error);
+        }
+    }
+    function loadWatchedStore() {
+        try {
+            const raw = localStorage.getItem(WATCHED_STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (error) {
+            console.warn('Failed to load watched store:', error);
+            return {};
+        }
+    }
+    function saveWatchedStore(store) {
+        try {
+            localStorage.setItem(WATCHED_STORAGE_KEY, JSON.stringify(store));
+        } catch (error) {
+            console.warn('Failed to save watched store:', error);
+        }
+    }
+    function loadVideoMetaStore() {
+        try {
+            const raw = localStorage.getItem(VIDEO_META_STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (error) {
+            console.warn('Failed to load video meta store:', error);
+            return {};
+        }
+    }
+    function saveVideoMetaStore(store) {
+        try {
+            localStorage.setItem(VIDEO_META_STORAGE_KEY, JSON.stringify(store));
+        } catch (error) {
+            console.warn('Failed to save video meta store:', error);
+        }
+    }
+    function getVideoMetaFromStore(store, videoPath) {
+        const value = store[videoPath];
+        if (!value || typeof value !== 'object') return {};
+        return value;
+    }
+    function getWatchedMetaFromStore(store, videoPath) {
+        const value = store[videoPath];
+        if (value === true || typeof value === 'number') {
+            return { watched: true, updatedAt: null };
+        }
+        if (value && typeof value === 'object') {
+            return {
+                watched: value.watched === true,
+                updatedAt: (typeof value.updatedAt === 'number' && Number.isFinite(value.updatedAt)) ? value.updatedAt : null
+            };
+        }
+        return { watched: false, updatedAt: null };
+    }
+    function isVideoWatchedFromStore(store, videoPath) {
+        const value = store[videoPath];
+        if (value === true) return true;
+        if (typeof value === 'number') return true;
+        if (value && typeof value === 'object' && value.watched === true) return true;
+        return false;
+    }
+    function setVideoWatched(videoPath, watched = true) {
+        if (!videoPath) return;
+        const store = loadWatchedStore();
+        if (watched) {
+            store[videoPath] = { watched: true, updatedAt: Date.now() };
+        } else {
+            delete store[videoPath];
+        }
+        saveWatchedStore(store);
+    }
+    function mergeVideoMeta(videoPath, nextMeta = {}) {
+        if (!videoPath || !nextMeta || typeof nextMeta !== 'object') return {};
+        const store = loadVideoMetaStore();
+        const currentMeta = getVideoMetaFromStore(store, videoPath);
+        const mergedMeta = {
+            duration: Number.isFinite(nextMeta.duration) && nextMeta.duration > 0
+                ? Math.floor(nextMeta.duration)
+                : (Number.isFinite(currentMeta.duration) ? currentMeta.duration : null),
+            width: Number.isFinite(nextMeta.width) && nextMeta.width > 0
+                ? Math.floor(nextMeta.width)
+                : (Number.isFinite(currentMeta.width) ? currentMeta.width : null),
+            height: Number.isFinite(nextMeta.height) && nextMeta.height > 0
+                ? Math.floor(nextMeta.height)
+                : (Number.isFinite(currentMeta.height) ? currentMeta.height : null),
+            size: Number.isFinite(nextMeta.size) && nextMeta.size > 0
+                ? Math.floor(nextMeta.size)
+                : (Number.isFinite(currentMeta.size) ? currentMeta.size : null),
+            updatedAt: Date.now()
+        };
+        store[videoPath] = mergedMeta;
+        saveVideoMetaStore(store);
+        return mergedMeta;
+    }
+    function getSavedResumePosition(videoPath) {
+        const store = loadResumeStore();
+        const value = store[videoPath];
+        if (typeof value === 'number') return value;
+        if (value && typeof value.time === 'number') return value.time;
+        return 0;
+    }
+    function getSavedResumeMetaFromStore(store, videoPath) {
+        const value = store[videoPath];
+        if (typeof value === 'number') {
+            return { time: value, duration: null };
+        }
+        if (value && typeof value.time === 'number') {
+            const duration = (typeof value.duration === 'number' && Number.isFinite(value.duration) && value.duration > 0)
+                ? value.duration
+                : null;
+            return { time: value.time, duration };
+        }
+        return { time: 0, duration: null };
+    }
+    function getSavedResumePositionFromStore(store, videoPath) {
+        return getSavedResumeMetaFromStore(store, videoPath).time;
+    }
+    function formatSeconds(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds));
+        const hh = Math.floor(seconds / 3600);
+        const mm = Math.floor((seconds % 3600) / 60);
+        const ss = seconds % 60;
+        if (hh > 0) {
+            return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+        }
+        return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+    }
+    function formatBytes(totalBytes) {
+        if (!Number.isFinite(totalBytes) || totalBytes <= 0) return null;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let value = totalBytes;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < (units.length - 1)) {
+            value /= 1024;
+            unitIndex += 1;
+        }
+        const fractionDigits = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
+        return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
+    }
+    function formatRelativeTime(timestamp) {
+        if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
+        const diffMs = Math.max(0, Date.now() - timestamp);
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 60) return 'just now';
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHour = Math.floor(diffMin / 60);
+        if (diffHour < 24) return `${diffHour}h ago`;
+        const diffDay = Math.floor(diffHour / 24);
+        if (diffDay < 30) return `${diffDay}d ago`;
+        const diffMonth = Math.floor(diffDay / 30);
+        if (diffMonth < 12) return `${diffMonth}mo ago`;
+        const diffYear = Math.floor(diffDay / 365);
+        return `${diffYear}y ago`;
+    }
+    function buildVideoMetaLine(videoMeta, resumeMeta) {
+        const parts = [];
+        const duration = Number.isFinite(videoMeta.duration) && videoMeta.duration > 0
+            ? videoMeta.duration
+            : (Number.isFinite(resumeMeta.duration) && resumeMeta.duration > 0 ? resumeMeta.duration : null);
+        if (duration) parts.push(formatSeconds(duration));
+
+        if (Number.isFinite(videoMeta.width) && Number.isFinite(videoMeta.height)
+            && videoMeta.width > 0 && videoMeta.height > 0) {
+            parts.push(`${Math.floor(videoMeta.width)}x${Math.floor(videoMeta.height)}`);
+        }
+
+        const sizeLabel = formatBytes(videoMeta.size);
+        if (sizeLabel) parts.push(sizeLabel);
+
+        return parts.join(' • ');
+    }
+    function buildLastWatchedLine(watchedMeta) {
+        if (!watchedMeta || watchedMeta.watched !== true) return '';
+        if (!watchedMeta.updatedAt) return 'Last watched recently';
+        const relative = formatRelativeTime(watchedMeta.updatedAt);
+        return relative ? `Last watched ${relative}` : 'Last watched recently';
+    }
+    function persistVideoProgress(videoPath, currentTime, duration) {
+        if (!videoPath || !Number.isFinite(currentTime)) return;
+
+        const safeCurrentTime = Math.max(0, Math.floor(currentTime));
+        const nearEnd = Number.isFinite(duration)
+            && duration > 0
+            && (duration - safeCurrentTime) <= RESUME_END_THRESHOLD_SECONDS;
+        const store = loadResumeStore();
+
+        if (nearEnd) {
+            delete store[videoPath];
+            saveResumeStore(store);
+            setVideoWatched(videoPath, true);
+            return;
+        }
+
+        // Ignore very early timestamps to avoid wiping saved progress
+        // during initial load/reload when player can briefly report 0.
+        if (safeCurrentTime < RESUME_MIN_SECONDS) {
+            return;
+        } else {
+            store[videoPath] = {
+                time: safeCurrentTime,
+                duration: Number.isFinite(duration) && duration > 0 ? Math.floor(duration) : null,
+                updatedAt: Date.now()
+            };
+        }
+
+        saveResumeStore(store);
+    }
+    function clearSavedProgress(videoPath) {
+        if (!videoPath) return;
+        const store = loadResumeStore();
+        if (store[videoPath] === undefined) return;
+        delete store[videoPath];
+        saveResumeStore(store);
+    }
+    function restoreVideoProgress(videoPlayer, videoPath) {
+        const savedPosition = getSavedResumePosition(videoPath);
+        if (savedPosition < RESUME_MIN_SECONDS) return false;
+        if (Number.isFinite(videoPlayer.duration) && videoPlayer.duration > 0) {
+            const maxResumePosition = Math.max(0, videoPlayer.duration - RESUME_END_THRESHOLD_SECONDS);
+            if (savedPosition > maxResumePosition) return false;
+        }
+        try {
+            videoPlayer.currentTime = savedPosition;
+            return true;
+        } catch (error) {
+            console.warn('Failed to restore progress:', error);
+            return false;
+        }
+    }
+
+    let lib = {};
+    let activeVideoPath = '';
+    let lastProgressSaveAt = 0;
+    let listSearchValue = '';
+    let listStatusFilter = 'all';
+    const folderStatsCache = new Map();
+
+    function getFolderStats(folderPath, folderNode) {
+        if (!folderNode || typeof folderNode !== 'object') {
+            return { videos: 0, folders: 0 };
+        }
+
+        if (folderStatsCache.has(folderPath)) {
+            return folderStatsCache.get(folderPath);
+        }
+
+        const stats = { videos: 0, folders: 0 };
+        for (const [name, value] of Object.entries(folderNode)) {
+            if (value === null) {
+                stats.videos += 1;
+            } else {
+                stats.folders += 1;
+                const childPath = joinPath(folderPath, name);
+                const childStats = getFolderStats(childPath, value);
+                stats.videos += childStats.videos;
+                stats.folders += childStats.folders;
+            }
+        }
+
+        folderStatsCache.set(folderPath, stats);
+        return stats;
+    }
+    function getFolderWatchProgress(folderPath, folderNode, watchedStore, cache = new Map()) {
+        if (!folderNode || typeof folderNode !== 'object') {
+            return { watchedVideos: 0, totalVideos: 0 };
+        }
+
+        if (cache.has(folderPath)) {
+            return cache.get(folderPath);
+        }
+
+        let watchedVideos = 0;
+        let totalVideos = 0;
+
+        for (const [name, value] of Object.entries(folderNode)) {
+            if (value === null) {
+                totalVideos += 1;
+                const videoPath = joinPath(folderPath, name);
+                if (isVideoWatchedFromStore(watchedStore, videoPath)) {
+                    watchedVideos += 1;
+                }
+            } else {
+                const childPath = joinPath(folderPath, name);
+                const childProgress = getFolderWatchProgress(childPath, value, watchedStore, cache);
+                watchedVideos += childProgress.watchedVideos;
+                totalVideos += childProgress.totalVideos;
+            }
+        }
+
+        const result = { watchedVideos, totalVideos };
+        cache.set(folderPath, result);
+        return result;
+    }
+
+    function persistActiveVideoProgress() {
+        if (!activeVideoPath) return;
+        const videoPlayer = document.getElementById('video-player');
+        if (!videoPlayer) return;
+        persistVideoProgress(activeVideoPath, videoPlayer.currentTime, videoPlayer.duration);
+    }
+
+    function renderData(path = '', updateHash = true) {
+       path = path.startsWith("/") ? path.substring(1) : path;
+       console.log('Render -> ', path, updateHash);
+
+       if (activeVideoPath && activeVideoPath !== path) {
+         persistActiveVideoProgress();
+       }
+
+       if (path && path.toLowerCase().endsWith('.mp4')) {
+         activeThumbnailScheduleId += 1;
+         activeVideoMetaScheduleId += 1;
+         if (folderPreviewObserver) {
+             folderPreviewObserver.disconnect();
+             folderPreviewObserver = null;
+         }
+         activeVideoPath = path;
+         lastProgressSaveAt = 0;
+         let basePath = path.split('/');
+         let currentVideo = basePath.pop();
+         basePath = basePath.join('/');
+         let baseName = currentVideo.substring(0, currentVideo.lastIndexOf("."));
+         let data = getObjectValByKeyPath(lib, basePath);
+         let videos = [];
+         for (const key in data) {
+           if (data[key] === null) {
+              videos.push(key);
+           }
+         }
+         // console.log(videos);
+
+         let prev = null;
+         let random = (videos.length > 1)?videos[Math.floor(Math.random() * videos.length)]:null;
+         let next = null;
+         for (let i in videos) {
+            i = parseInt(i, 10);
+            const key = videos[i];
+            if (key === currentVideo) {
+               prev = (i-1 > -1)?videos[i-1]:null;
+               next = (i + 1 <= (videos.length - 1)) ? videos[i + 1] : null;
+            }
+         }
+
+         // console.log('Prev: ', prev);
+         // console.log('Current: ', currentVideo);
+         // console.log('Next: ', next);
+
+         if (prev !== null) {
+           set_el('#video-prev', {
+               styles:{display: ''},
+               events: {
+                   click: () => {
+                       setHash(joinPath(basePath, prev));
+                       return false;
+                   }
+               }
+           });
+         } else {
+           set_el('#video-prev', {styles:{display: 'none'}});
+         }
+         if (next !== null) {
+               set_el('#video-next', {
+                   styles:{display: ''},
+                   events: {
+                       click: () => {
+                           setHash(joinPath(basePath, next));
+                           return false;
+                       }
+                   }
+               });
+         } else {
+               set_el('#video-next', {styles:{display: 'none'}});
+         }
+         if (random !== null) {
+               set_el('#video-random', {
+                   styles: {display: ''},
+                   events: {
+                       click: () => {
+                           setHash(joinPath(basePath, random));
+                           return false;
+                       }
+                   }
+               });
+         } else {
+               set_el('#video-random', {styles: {display: 'none'}});
+         }
+
+         set_el('#video-list', {styles:{display: 'none'}});
+         set_el('#video-container', {styles:{display: ''}});
+         set_el('#video-player', {
+               events: {
+                   loadedmetadata: (event) => {
+                       const videoPlayer = event.currentTarget;
+                       restoreVideoProgress(videoPlayer, path);
+                   },
+                   canplay: (event) => {
+                       const videoPlayer = event.currentTarget;
+                       if (videoPlayer.dataset.resumeApplied === '1') return;
+                       if (restoreVideoProgress(videoPlayer, path)) {
+                           videoPlayer.dataset.resumeApplied = '1';
+                       }
+                   },
+                   timeupdate: (event) => {
+                       const now = Date.now();
+                       if ((now - lastProgressSaveAt) < RESUME_SAVE_INTERVAL_MS) return;
+                       const videoPlayer = event.currentTarget;
+                       persistVideoProgress(path, videoPlayer.currentTime, videoPlayer.duration);
+                       lastProgressSaveAt = now;
+                   },
+                   pause: (event) => {
+                       const videoPlayer = event.currentTarget;
+                       persistVideoProgress(path, videoPlayer.currentTime, videoPlayer.duration);
+                       lastProgressSaveAt = Date.now();
+                   },
+                   seeked: (event) => {
+                       const videoPlayer = event.currentTarget;
+                       persistVideoProgress(path, videoPlayer.currentTime, videoPlayer.duration);
+                       lastProgressSaveAt = Date.now();
+                   },
+                   ended: () => {
+                       clearSavedProgress(path);
+                       setVideoWatched(path, true);
+                   }
+               }
+         });
+         set_el('#video-player', {
+               attributes: {
+                   src: path,
+                   'data-resume-applied': '0'
+               }
+         });
+         set_el('#video-back', {
+                 events: {
+                     click: () => {
+                        // window.history.back();
+                        setHash(basePath);
+                        return false;
+                     }
+                 }
+         });
+         set_el('#video-breadcrumb', { html: '' });
+         const videoBreadcrumb = document.getElementById('video-breadcrumb');
+         if (videoBreadcrumb) {
+             videoBreadcrumb.appendChild(createBreadcrumb(basePath, { lastSegmentClickable: true }));
+         }
+         set_el('#video-title', {html: escapeHtml(baseName)})
+         return;
+       }
+
+       activeVideoPath = '';
+       let data = getObjectValByKeyPath(lib, path);
+       if (!data || typeof data !== 'object') {
+           setHash('');
+           return;
+       }
+
+       set_el('#video-list', {styles:{display: ''}});
+       set_el('#video-container', {styles:{display: 'none'}});
+
+       const container = document.getElementById('video-list');
+       container.innerHTML = '';
+       const shell = create_el('div', 'library-shell');
+       container.appendChild(shell);
+
+       const toolbar = create_el('div', 'toolbar');
+       shell.appendChild(toolbar);
+
+       const navRow = create_el('div', 'toolbar-row');
+       const breadcrumbWrap = create_el('div', 'crumb-wrap');
+       breadcrumbWrap.appendChild(createBreadcrumb(path));
+       navRow.appendChild(breadcrumbWrap);
+       if (path !== '') {
+         navRow.appendChild(create_el('button', 'btn', { type: 'button' }, {
+             click: () => {
+                 let p = path.split('/');
+                 p.pop();
+                 setHash(p.join('/'));
+             }
+         }, 'Back'));
+       }
+       navRow.appendChild(create_el('button', 'btn accent', { type: 'button' }, {
+            click: () => {
+               const randomLeafPath = getRandomObjectPath(data);
+               if (!randomLeafPath) return;
+               setHash(joinPath(path, randomLeafPath));
+            }
+       }, 'Random'));
+       toolbar.appendChild(navRow);
+
+       const controlsRow = create_el('div', 'toolbar-row controls');
+       controlsRow.appendChild(create_el('input', 'search-input', {
+           type: 'search',
+           placeholder: 'Search folders and videos',
+           value: listSearchValue,
+           autocomplete: 'off'
+       }, {
+           input: (event) => {
+               listSearchValue = event.currentTarget.value || '';
+               renderData(path, false);
+           }
+       }));
+       const filterSelect = create_el('select', 'filter-select', { 'aria-label': 'Video status filter' }, {
+           change: (event) => {
+               listStatusFilter = event.currentTarget.value;
+               renderData(path, false);
+           }
+       }, `
+           <option value="all">All videos</option>
+           <option value="in-progress">In progress</option>
+           <option value="not-started">Not started</option>
+       `);
+       filterSelect.value = listStatusFilter;
+       controlsRow.appendChild(filterSelect);
+       toolbar.appendChild(controlsRow);
+
+       const cards = create_el('div', 'cards');
+       shell.appendChild(cards);
+
+       let folders = [];
+       let videos = [];
+       const resumeStore = loadResumeStore();
+       const watchedStore = loadWatchedStore();
+       const videoMetaStore = loadVideoMetaStore();
+       const folderWatchCache = new Map();
+       for (const key in data) {
+            if (data[key] === null) {
+              videos.push(key);
+            } else {
+              folders.push(key);
+            }
+        }
+       folders.sort(compareNames);
+       videos.sort(compareNames);
+
+       const normalizedQuery = listSearchValue.trim().toLowerCase();
+       const visibleFolders = folders.filter((folderName) => {
+            return normalizedQuery === '' || folderName.toLowerCase().includes(normalizedQuery);
+       });
+       const visibleVideos = videos
+            .map((videoName) => {
+                const videoPath = joinPath(path, videoName);
+                const resume = getSavedResumeMetaFromStore(resumeStore, videoPath);
+                const watchedMeta = getWatchedMetaFromStore(watchedStore, videoPath);
+                const videoMeta = getVideoMetaFromStore(videoMetaStore, videoPath);
+                return { videoName, videoPath, resume, watchedMeta, videoMeta };
+            })
+            .filter((videoData) => {
+                const matchesQuery = normalizedQuery === ''
+                    || videoData.videoName.toLowerCase().includes(normalizedQuery);
+                if (!matchesQuery) return false;
+
+                const inProgress = videoData.resume.time >= RESUME_MIN_SECONDS;
+                if (listStatusFilter === 'in-progress') return inProgress;
+                if (listStatusFilter === 'not-started') return !inProgress && !videoData.watchedMeta.watched;
+                return true;
+            });
+
+       const folderWord = visibleFolders.length === 1 ? 'folder' : 'folders';
+       const videoWord = visibleVideos.length === 1 ? 'video' : 'videos';
+       const filterSuffix = (normalizedQuery !== '' || listStatusFilter !== 'all') ? ' (filtered)' : '';
+       toolbar.appendChild(create_el(
+            'div',
+            'toolbar-meta',
+            {},
+            {},
+            `${visibleFolders.length} ${folderWord}, ${visibleVideos.length} ${videoWord}${filterSuffix}`
+       ));
+
+       for (const folderName of visibleFolders) {
+          const folderPath = joinPath(path, folderName);
+          const folderStats = getFolderStats(folderPath, data[folderName]);
+          const folderProgress = getFolderWatchProgress(folderPath, data[folderName], watchedStore, folderWatchCache);
+          const folderPreviewVideos = collectFolderPreviewVideoPaths(folderPath, data[folderName], FOLDER_PREVIEW_LIMIT);
+          const watchedPercent = folderProgress.totalVideos > 0
+              ? (folderProgress.watchedVideos / folderProgress.totalVideos) * 100
+              : 0;
+          const folderMetaParts = [
+              `${folderStats.videos} ${pluralize(folderStats.videos, 'video')}`
+          ];
+          if (folderStats.folders > 0) {
+              folderMetaParts.push(`${folderStats.folders} ${pluralize(folderStats.folders, 'subfolder')}`);
+          }
+          const item = create_el('div', 'card folder', {}, {
+                click: () => {
+                    setHash(folderPath);
+                }
+          });
+
+          const folderLayout = create_el('div', 'folder-layout');
+          const folderInfo = create_el('div', 'folder-info');
+          folderInfo.appendChild(create_el('h4', 'card-title', {}, {}, escapeHtml(folderName)));
+          folderInfo.appendChild(create_el('div', 'folder-meta', {}, {}, folderMetaParts.join(' • ')));
+          folderInfo.appendChild(create_el(
+              'div',
+              'folder-progress-meta',
+              {},
+              {},
+              `Watched ${folderProgress.watchedVideos} / ${folderProgress.totalVideos}`
+          ));
+          const folderTrack = create_el('div', 'folder-progress-track');
+          folderTrack.appendChild(create_el('span', 'folder-progress-fill', {
+              style: `width:${watchedPercent.toFixed(2)}%`
+          }));
+          folderInfo.appendChild(folderTrack);
+
+          const folderPreview = create_el('div', 'folder-preview empty');
+          folderPreviewVideos.forEach((videoPath, index) => {
+              const tileClass = index === 0 ? 'folder-preview-tile main' : 'folder-preview-tile';
+              folderPreview.appendChild(create_el('div', tileClass, {
+                  'data-video-path': videoPath
+              }));
+          });
+
+          folderLayout.appendChild(folderPreview);
+          folderLayout.appendChild(folderInfo);
+          item.appendChild(folderLayout);
+          cards.appendChild(item);
+       }
+       for (const videoData of visibleVideos) {
+            const resumeSeconds = getSavedResumePositionFromStore(resumeStore, videoData.videoPath);
+            const videoMetaLine = buildVideoMetaLine(videoData.videoMeta, videoData.resume);
+            const lastWatchedLine = buildLastWatchedLine(videoData.watchedMeta);
+            const item = create_el('div', 'card video', {}, {
+                click: () => {
+                    setHash(videoData.videoPath);
+                }
+            });
+
+            const layout = create_el('div', 'video-card-layout');
+            const thumb = create_el('div', 'card-thumb', { 'data-video-path': videoData.videoPath });
+            const info = create_el('div', 'video-card-info');
+            info.appendChild(create_el('h4', 'card-title', {}, {}, escapeHtml(videoData.videoName)));
+            info.appendChild(create_el(
+                'div',
+                'video-meta-line',
+                { 'data-video-path': videoData.videoPath },
+                {},
+                escapeHtml(videoMetaLine || 'Metadata loading...')
+            ));
+            if (lastWatchedLine) {
+                info.appendChild(create_el('div', 'video-last-watched', {}, {}, escapeHtml(lastWatchedLine)));
+            }
+
+            if (resumeSeconds >= RESUME_MIN_SECONDS) {
+                info.appendChild(create_el('p', 'resume-label', {}, {}, `▶ Resume from ${formatSeconds(resumeSeconds)}`));
+            }
+
+            if (resumeSeconds >= RESUME_MIN_SECONDS && Number.isFinite(videoData.resume.duration) && videoData.resume.duration > 0) {
+                const progressPercent = Math.max(
+                    0,
+                    Math.min(100, (resumeSeconds / videoData.resume.duration) * 100)
+                );
+                const track = create_el('div', 'progress-track');
+                track.appendChild(create_el('span', 'progress-fill', {
+                    style: `width:${progressPercent.toFixed(2)}%`
+                }));
+                info.appendChild(track);
+                info.appendChild(create_el(
+                    'div',
+                    'progress-meta',
+                    {},
+                    {},
+                    `${formatSeconds(resumeSeconds)} / ${formatSeconds(videoData.resume.duration)}`
+                ));
+            }
+
+            layout.appendChild(thumb);
+            layout.appendChild(info);
+            item.appendChild(layout);
+            cards.appendChild(item);
+       }
+
+       if (visibleFolders.length === 0 && visibleVideos.length === 0) {
+            cards.appendChild(create_el(
+                'div',
+                'empty-state',
+                {},
+                {},
+                'No matches in this folder. Try clearing search or changing filter.'
+            ));
+       }
+
+       setupThumbnailObserver();
+       setupFolderPreviewObserver();
+       scheduleVisibleVideoMetaEnrichment(visibleVideos);
+    }
+
+    (async () => {
+        lib = await loadJsonFile('lib.json');
+        console.log(lib);
+        window.addEventListener('beforeunload', persistActiveVideoProgress);
+        window.addEventListener('beforeunload', releaseThumbnailObjectUrls);
+        window.addEventListener('pagehide', persistActiveVideoProgress);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) persistActiveVideoProgress();
+        });
+        window.addEventListener('hashchange', () => {
+            console.log('[event] HASH change -> ', getHash());
+            renderData(getHash());
+        });
+        renderData(getHash());
+    })();
+
+</script>
+
+</body>
+</html>

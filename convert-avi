@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Check if ffmpeg is installed
+if ! command -v ffmpeg &> /dev/null; then
+    echo "ffmpeg is not installed. Please install it first."
+    exit 1
+fi
+
+# Loop through all MKV files in the current directory
+for mkv_file in *.avi; do
+    # Check if the file exists and is not empty
+    if [ -s "$mkv_file" ]; then
+        # Set the output file name by replacing the .mkv extension with .mp4
+        mp4_file="${mkv_file%.*}.mp4"
+
+        # Convert the MKV file to MP4 using ffmpeg
+        echo "Converting $mkv_file to $mp4_file..."
+        ffmpeg -i "$mkv_file" -codec:v libx264 -codec:a aac "$mp4_file"
+
+        # Check if the conversion was successful
+        if [ $? -eq 0 ]; then
+            # Remove the original MKV file
+            echo "Conversion successful. Removing $mkv_file..."
+            rm "$mkv_file"
+        else
+            # Notify the user that the conversion failed
+            echo "Conversion failed. The original file ($mkv_file) has not been removed."
+        fi
+    else
+        echo "File $mkv_file is empty or does not exist. Skipping..."
+    fi
+done
+
+echo "Done. All AVI files have been converted to MP4 and the originals have been removed."
+

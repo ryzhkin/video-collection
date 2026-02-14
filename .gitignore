@@ -1,0 +1,15 @@
+# Generated index
+lib.json
+
+# Media library
+*.mp4
+*.mkv
+*.avi
+Friends/
+The newsroom/
+youtube/
+Теория большого взрыва/
+
+# macOS metadata
+.DS_Store
+._*
