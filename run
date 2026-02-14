@@ -10,7 +10,7 @@ Usage: ./run [-n] [-p PORT] [-a ADDRESS]
 Options:
   -n           Enable ngrok tunnel
   -p PORT      HTTP server port (default: 8081)
-  -a ADDRESS   Bind address for http-server (default: 127.0.0.1)
+  -a ADDRESS   Bind address for built-in web server (default: 127.0.0.1)
 EOF
 }
 
@@ -70,7 +70,6 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${script_dir}"
 
 require_cmd node
-require_cmd http-server
 if [[ "${use_ngrok}" == "true" ]]; then
   require_cmd ngrok
 fi
@@ -93,5 +92,5 @@ if [[ "${use_ngrok}" == "true" ]]; then
   ngrok_pid=$!
 fi
 
-echo "[run] Starting http-server at http://${address}:${port}"
-http-server -a "${address}" -p "${port}"
+echo "[run] Starting web server at http://${address}:${port}"
+node server.js --host "${address}" --port "${port}"

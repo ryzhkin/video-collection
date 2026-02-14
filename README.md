@@ -25,15 +25,15 @@ Whether it is your favorite sitcom archive, learning videos, or random clips, th
 ## Requirements
 
 - `node` (for `build.js`)
-- `http-server` (CLI, used by `run`)
 - `ffmpeg` (for conversion scripts)
-- `youtube-dl` (currently used by `yt`)
+- `yt-dlp` (recommended for `yt`; `youtube-dl` fallback is limited)
 - `ngrok` (optional, only if you use `./run -n`)
 
 ## Project Files
 
 - `build.js` - scans folders recursively and builds `lib.json` from `.mp4` files
 - `index.html` - frontend UI (folders/videos, playback, resume, thumbnails, metadata)
+- `server.js` - lightweight static server + YouTube download API queue
 - `run` - build + serve workflow with optional ngrok
 - `yt` - download from YouTube into `youtube/`
 - `convert-mkv` - convert `.mkv` to `.mp4`
@@ -116,6 +116,8 @@ Convert media in current directory:
 - compact metadata line:
   - `duration • resolution • file size`
 - last watched relative time (`Last watched 2d ago`)
+- YouTube download from search field (paste URL + `Enter`)
+  - downloads into the currently open folder in the UI
 
 ## Hidden Action
 
@@ -139,8 +141,10 @@ At root breadcrumb (`Library` as current item):
 
 ## Troubleshooting
 
-- `http-server: command not found`:
-  - install globally, e.g. `npm i -g http-server`
+- `YouTube request failed` in UI:
+  - ensure you started via `./run` (it launches `server.js` with API endpoints)
+- `yt-dlp is required`:
+  - install via `brew install yt-dlp`
 - `ffmpeg is not installed`:
   - install ffmpeg and re-run conversion/download scripts
 - thumbnails look stale:

@@ -101,6 +101,17 @@
             border-color: #c7beae;
         }
 
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn:disabled:hover {
+            transform: none;
+            border-color: var(--border);
+        }
+
         .btn.accent {
             background: linear-gradient(135deg, var(--teal-soft), #eef7f6);
             border-color: #9fcfc8;
@@ -129,6 +140,76 @@
         .filter-select {
             flex: 0 0 200px;
             padding: 0 8px;
+        }
+
+        .search-input.youtube-ready {
+            border-color: #7fae87;
+            background: linear-gradient(180deg, #f6fff4, #ffffff);
+        }
+
+        .download-btn {
+            white-space: nowrap;
+        }
+
+        .search-hint {
+            font-size: 0.77rem;
+            color: #66747f;
+        }
+
+        .yt-download-status {
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .yt-download-status.busy {
+            color: #0f6a63;
+            font-weight: 600;
+        }
+
+        .yt-download-status.success {
+            color: #226f34;
+            font-weight: 600;
+        }
+
+        .yt-download-status.error {
+            color: #a03535;
+            font-weight: 600;
+        }
+
+        .yt-progress-label {
+            font-size: 0.8rem;
+            color: #4f5f6b;
+        }
+
+        .yt-progress-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .yt-progress-track {
+            flex: 1 1 auto;
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(20, 118, 111, 0.16);
+            overflow: hidden;
+        }
+
+        .yt-progress-fill {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #1b8a82, #49bdb3);
+            transition: width 0.2s ease;
+        }
+
+        .yt-progress-percent {
+            flex: 0 0 auto;
+            min-width: 52px;
+            text-align: right;
+            font-size: 0.78rem;
+            color: #466373;
+            font-weight: 600;
         }
 
         .cards {
@@ -769,6 +850,23 @@
     }
     function compareNames(a, b) {
         return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    function isLikelyYouTubeUrl(value) {
+        if (typeof value !== 'string') return false;
+        const raw = value.trim();
+        if (!raw) return false;
+        let parsed;
+        try {
+            parsed = new URL(raw);
+        } catch (_) {
+            return false;
+        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+        const host = parsed.hostname.toLowerCase();
+        return host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com');
+    }
+    function isVideoFilePath(path) {
+        return typeof path === 'string' && path.toLowerCase().endsWith('.mp4');
     }
     function createBreadcrumb(path, options = {}) {
         const { lastSegmentClickable = false } = options;
@@ -1810,7 +1908,21 @@
     let lastProgressSaveAt = 0;
     let listSearchValue = '';
     let listStatusFilter = 'all';
+    let youtubeUiStatus = {
+        text: '',
+        tone: 'muted'
+    };
+    let youtubeUiProgress = {
+        visible: false,
+        label: '',
+        percent: null,
+        approximate: false
+    };
+    let youtubeDownloadBusy = false;
+    let youtubeStatusPollTimer = null;
+    let lastHandledFinishedYoutubeJobId = null;
     const folderStatsCache = new Map();
+    const YOUTUBE_STATUS_POLL_MS = 2200;
 
     function getFolderStats(folderPath, folderNode) {
         if (!folderNode || typeof folderNode !== 'object') {
@@ -1876,6 +1988,224 @@
         persistVideoProgress(activeVideoPath, videoPlayer.currentTime, videoPlayer.duration);
     }
 
+    function setYoutubeUiStatus(text, tone = 'muted') {
+        youtubeUiStatus = {
+            text: text || '',
+            tone
+        };
+    }
+    function clearYoutubeUiProgress() {
+        youtubeUiProgress = {
+            visible: false,
+            label: '',
+            percent: null,
+            approximate: false
+        };
+    }
+    function setYoutubeUiProgress(nextProgress) {
+        if (!nextProgress || nextProgress.visible !== true) {
+            clearYoutubeUiProgress();
+            return;
+        }
+        const percent = Number.isFinite(nextProgress.percent)
+            ? Math.max(0, Math.min(100, nextProgress.percent))
+            : null;
+        youtubeUiProgress = {
+            visible: true,
+            label: String(nextProgress.label || ''),
+            percent,
+            approximate: nextProgress.approximate === true
+        };
+    }
+    function setYoutubeDownloadBusy(nextBusy) {
+        youtubeDownloadBusy = nextBusy === true;
+    }
+    function stopYoutubeStatusPolling() {
+        if (!youtubeStatusPollTimer) return;
+        clearInterval(youtubeStatusPollTimer);
+        youtubeStatusPollTimer = null;
+    }
+    async function refreshLibraryIndex(path) {
+        lib = await loadJsonFile(`lib.json?ts=${Date.now()}`);
+        folderStatsCache.clear();
+        if (!isVideoFilePath(path)) {
+            renderData(path, false);
+        }
+    }
+    function buildYoutubeStatusText(statusPayload) {
+        if (!statusPayload || typeof statusPayload !== 'object') return '';
+        if (statusPayload.activeJob) {
+            const pending = Number.isFinite(statusPayload.queueLength) ? statusPayload.queueLength : 0;
+            if (pending > 0) return `YouTube download in progress. Queue: ${pending}`;
+            return 'YouTube download in progress...';
+        }
+        const pending = Number.isFinite(statusPayload.queueLength) ? statusPayload.queueLength : 0;
+        if (pending > 0) {
+            return `YouTube download queued (${pending})`;
+        }
+        return '';
+    }
+    function mapYoutubeProgress(statusPayload) {
+        if (!statusPayload || typeof statusPayload !== 'object') return null;
+        if (statusPayload.activeJob && statusPayload.activeJob.progress) {
+            const progress = statusPayload.activeJob.progress;
+            return {
+                visible: true,
+                label: progress.text || 'YouTube download in progress...',
+                percent: Number.isFinite(progress.percent) ? progress.percent : null,
+                approximate: progress.approximate === true
+            };
+        }
+        const pending = Number.isFinite(statusPayload.queueLength) ? statusPayload.queueLength : 0;
+        if (pending > 0) {
+            return {
+                visible: true,
+                label: `Queued (${pending})`,
+                percent: 0,
+                approximate: true
+            };
+        }
+        return null;
+    }
+    async function pollYoutubeStatus() {
+        const currentPath = getHash();
+        try {
+            const response = await fetch('/api/youtube/status', { cache: 'no-store' });
+            if (!response.ok) {
+                if (response.status === 404) {
+                    setYoutubeDownloadBusy(false);
+                    clearYoutubeUiProgress();
+                    stopYoutubeStatusPolling();
+                    return;
+                }
+                throw new Error(`Status request failed (${response.status})`);
+            }
+            const statusPayload = await response.json();
+            const busyStatusText = buildYoutubeStatusText(statusPayload);
+            if (busyStatusText) {
+                setYoutubeDownloadBusy(true);
+                const progressView = mapYoutubeProgress(statusPayload);
+                setYoutubeUiProgress(progressView);
+                setYoutubeUiStatus(
+                    (progressView && progressView.label) ? progressView.label : busyStatusText,
+                    'busy'
+                );
+                if (!isVideoFilePath(currentPath)) {
+                    renderData(currentPath, false);
+                }
+                return;
+            }
+
+            setYoutubeDownloadBusy(false);
+            clearYoutubeUiProgress();
+
+            const finishedJob = statusPayload.lastFinishedJob;
+            if (finishedJob && finishedJob.id !== lastHandledFinishedYoutubeJobId) {
+                lastHandledFinishedYoutubeJobId = finishedJob.id;
+                if (finishedJob.state === 'done') {
+                    setYoutubeUiStatus('YouTube download completed.', 'success');
+                    await refreshLibraryIndex(currentPath);
+                } else if (finishedJob.state === 'failed') {
+                    setYoutubeUiStatus('YouTube download failed. Check terminal logs.', 'error');
+                    if (!isVideoFilePath(currentPath)) {
+                        renderData(currentPath, false);
+                    }
+                }
+            }
+            stopYoutubeStatusPolling();
+        } catch (error) {
+            console.warn('Failed to poll YouTube status:', error);
+            setYoutubeDownloadBusy(false);
+            clearYoutubeUiProgress();
+            setYoutubeUiStatus('YouTube status is unavailable right now.', 'error');
+            if (!isVideoFilePath(currentPath)) {
+                renderData(currentPath, false);
+            }
+            stopYoutubeStatusPolling();
+        }
+    }
+    function ensureYoutubeStatusPolling() {
+        if (youtubeStatusPollTimer) return;
+        pollYoutubeStatus();
+        youtubeStatusPollTimer = setInterval(() => {
+            pollYoutubeStatus();
+        }, YOUTUBE_STATUS_POLL_MS);
+    }
+    async function queueYoutubeDownload(rawUrl, path) {
+        if (!isLikelyYouTubeUrl(rawUrl)) {
+            setYoutubeUiStatus('Enter a valid YouTube URL.', 'error');
+            renderData(path, false);
+            return;
+        }
+        if (youtubeDownloadBusy) {
+            setYoutubeUiStatus('Download already in progress. Please wait.', 'busy');
+            renderData(path, false);
+            return;
+        }
+
+        setYoutubeDownloadBusy(true);
+        setYoutubeUiStatus('Queueing YouTube download...', 'busy');
+        setYoutubeUiProgress({
+            visible: true,
+            label: 'Queueing YouTube download...',
+            percent: 1,
+            approximate: true
+        });
+        renderData(path, false);
+        try {
+            const response = await fetch('/api/youtube/download', {
+                method: 'POST',
+                cache: 'no-store',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: rawUrl.trim(),
+                    targetPath: path
+                })
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const message = payload.error || `YouTube request failed (${response.status})`;
+                throw new Error(message);
+            }
+            listSearchValue = '';
+            const position = Number.isFinite(payload.queuePosition) ? payload.queuePosition : null;
+            if (payload.state === 'running') {
+                setYoutubeUiStatus('YouTube download started.', 'busy');
+                setYoutubeUiProgress({
+                    visible: true,
+                    label: 'YouTube download started.',
+                    percent: 2,
+                    approximate: true
+                });
+            } else if (position) {
+                setYoutubeUiStatus(`Queued for download (#${position}).`, 'busy');
+                setYoutubeUiProgress({
+                    visible: true,
+                    label: `Queued for download (#${position}).`,
+                    percent: 0,
+                    approximate: true
+                });
+            } else {
+                setYoutubeUiStatus('Queued for download.', 'busy');
+                setYoutubeUiProgress({
+                    visible: true,
+                    label: 'Queued for download.',
+                    percent: 0,
+                    approximate: true
+                });
+            }
+            renderData(path, false);
+            ensureYoutubeStatusPolling();
+        } catch (error) {
+            setYoutubeDownloadBusy(false);
+            clearYoutubeUiProgress();
+            setYoutubeUiStatus(error.message || 'YouTube request failed.', 'error');
+            renderData(path, false);
+        }
+    }
+
     function renderData(path = '', updateHash = true) {
        path = path.startsWith("/") ? path.substring(1) : path;
        console.log('Render -> ', path, updateHash);
@@ -1884,7 +2214,7 @@
          persistActiveVideoProgress();
        }
 
-       if (path && path.toLowerCase().endsWith('.mp4')) {
+       if (isVideoFilePath(path)) {
          activeThumbnailScheduleId += 1;
          activeVideoMetaScheduleId += 1;
          if (folderPreviewObserver) {
@@ -2065,7 +2395,10 @@
        toolbar.appendChild(navRow);
 
        const controlsRow = create_el('div', 'toolbar-row controls');
-       controlsRow.appendChild(create_el('input', 'search-input', {
+       const searchInputClasses = isLikelyYouTubeUrl(listSearchValue)
+           ? 'search-input youtube-ready'
+           : 'search-input';
+       controlsRow.appendChild(create_el('input', searchInputClasses, {
            type: 'search',
            placeholder: 'Search folders and videos',
            value: listSearchValue,
@@ -2074,8 +2407,29 @@
            input: (event) => {
                listSearchValue = event.currentTarget.value || '';
                renderData(path, false);
+           },
+           keydown: (event) => {
+               if (event.key !== 'Enter') return;
+               const currentValue = (event.currentTarget.value || '').trim();
+               if (!isLikelyYouTubeUrl(currentValue)) return;
+               if (youtubeDownloadBusy) return;
+               event.preventDefault();
+               queueYoutubeDownload(currentValue, path);
            }
        }));
+       if (isLikelyYouTubeUrl(listSearchValue)) {
+           const buttonAttrs = { type: 'button' };
+           if (youtubeDownloadBusy) {
+               buttonAttrs.disabled = 'disabled';
+               buttonAttrs['aria-disabled'] = 'true';
+           }
+           controlsRow.appendChild(create_el('button', 'btn accent download-btn', buttonAttrs, {
+               click: () => {
+                   if (youtubeDownloadBusy) return;
+                   queueYoutubeDownload(listSearchValue, path);
+               }
+           }, 'Download'));
+       }
        const filterSelect = create_el('select', 'filter-select', { 'aria-label': 'Video status filter' }, {
            change: (event) => {
                listStatusFilter = event.currentTarget.value;
@@ -2089,6 +2443,42 @@
        filterSelect.value = listStatusFilter;
        controlsRow.appendChild(filterSelect);
        toolbar.appendChild(controlsRow);
+       if (youtubeUiStatus.text) {
+           const toneClass = ['busy', 'success', 'error'].includes(youtubeUiStatus.tone)
+               ? youtubeUiStatus.tone
+               : '';
+           const statusClasses = toneClass
+               ? `yt-download-status ${toneClass}`
+               : 'yt-download-status';
+           toolbar.appendChild(create_el('div', statusClasses, {}, {}, escapeHtml(youtubeUiStatus.text)));
+       }
+       if (youtubeUiProgress.visible) {
+           const progressPercent = Number.isFinite(youtubeUiProgress.percent)
+               ? Math.max(0, Math.min(100, youtubeUiProgress.percent))
+               : 0;
+           const progressLabel = youtubeUiProgress.label || 'Working...';
+           const percentLabel = Number.isFinite(youtubeUiProgress.percent)
+               ? `${Math.round(progressPercent)}%${youtubeUiProgress.approximate ? ' approx' : ''}`
+               : '';
+           toolbar.appendChild(create_el('div', 'yt-progress-label', {}, {}, escapeHtml(progressLabel)));
+           const progressRow = create_el('div', 'yt-progress-row');
+           const track = create_el('div', 'yt-progress-track');
+           track.appendChild(create_el('span', 'yt-progress-fill', {
+               style: `width:${progressPercent.toFixed(1)}%`
+           }));
+           progressRow.appendChild(track);
+           if (percentLabel) {
+               progressRow.appendChild(create_el('span', 'yt-progress-percent', {}, {}, escapeHtml(percentLabel)));
+           }
+           toolbar.appendChild(progressRow);
+       }
+       toolbar.appendChild(create_el(
+           'div',
+           'search-hint',
+           {},
+           {},
+           'Tip: YouTube download is saved into the currently open folder.'
+       ));
 
        const cards = create_el('div', 'cards');
        shell.appendChild(cards);
@@ -2276,6 +2666,7 @@
             renderData(getHash());
         });
         renderData(getHash());
+        ensureYoutubeStatusPolling();
     })();
 
 </script>
