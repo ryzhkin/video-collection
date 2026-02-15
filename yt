@@ -258,6 +258,7 @@ echo "[yt] Downloading ${#@} URL(s) to ${OUTPUT_DIR}"
 COMMON_ARGS=(
     --newline
     --continue
+    --no-playlist
     --format "${FORMAT_SELECTOR}"
     --output "${OUTPUT_TEMPLATE}"
 )

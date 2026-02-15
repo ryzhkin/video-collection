@@ -98,6 +98,7 @@ Download one YouTube URL into `youtube/`:
 ```
 
 `yt` prefers compact progressive MP4 first (`H.264 + AAC`), with fallback to merged MP4 streams.
+Playlist parameters in URL (`list=...`) are ignored by default, so `./yt` downloads only the selected video.
 For smaller files, use lower preferred height, e.g. `TARGET_HEIGHT=360` or `TARGET_HEIGHT=240`.
 By default, downloaded files are additionally re-encoded with denser `H.264 + AAC`
 for better size/compatibility (`TRANSCODE_DENSE=1`, configurable via env vars).
