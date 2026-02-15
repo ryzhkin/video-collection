@@ -63,7 +63,7 @@ http://127.0.0.1:8081
 Available options:
 - `-n` enable ngrok tunnel
 - `-p PORT` set HTTP port (default `8081`)
-- `-a ADDRESS` set bind address (default `127.0.0.1`)
+- `-a ADDRESS` set bind address (default `0.0.0.0`)
 
 Examples:
 
@@ -96,6 +96,12 @@ Download one YouTube URL into `youtube/`:
 ```bash
 ./yt "https://www.youtube.com/watch?v=..."
 ```
+
+`yt` prefers compact progressive MP4 first (`H.264 + AAC`), with fallback to merged MP4 streams.
+For smaller files, use lower preferred height, e.g. `TARGET_HEIGHT=360` or `TARGET_HEIGHT=240`.
+By default, downloaded files are additionally re-encoded with denser `H.264 + AAC`
+for better size/compatibility (`TRANSCODE_DENSE=1`, configurable via env vars).
+Current defaults are tuned for compact 360 playback: `CRF 25`, `preset slow`, `AAC 96k`.
 
 Convert media in current directory:
 

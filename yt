@@ -11,7 +11,12 @@ Downloads video(s) as MP4 and rebuilds lib.json afterwards.
 
 Environment variables:
   YT_OUTPUT_DIR Target output directory (default: ./youtube)
-  MAX_HEIGHT   Max output height for video stream (default: 480)
+  TARGET_HEIGHT Preferred output height for compact files (default: 360)
+  MAX_HEIGHT   Max output height for video stream (default: 360)
+  TRANSCODE_DENSE Enable denser H.264/AAC re-encode after download (default: 1)
+  TRANSCODE_CRF H.264 CRF for dense encode (default: 25)
+  TRANSCODE_PRESET x264 preset (default: slow)
+  TRANSCODE_AUDIO_BITRATE AAC bitrate for dense encode (default: 96k)
 EOF
 }
 
@@ -33,6 +38,162 @@ pick_downloader() {
     fi
     echo ""
 }
+validate_bool_flag() {
+    local value="$1"
+    [[ "${value}" == "0" || "${value}" == "1" ]]
+}
+validate_positive_int() {
+    local value="$1"
+    [[ "${value}" =~ ^[0-9]+$ ]] && [[ "${value}" -gt 0 ]]
+}
+bytes_count() {
+    local filepath="$1"
+    wc -c < "${filepath}" | tr -d ' '
+}
+emit_progress_event() {
+    local phase="$1"
+    local percent="$2"
+    local approximate="$3"
+    local eta_seconds="$4"
+    local text="$5"
+    echo "[yt-progress] ${phase}|${percent}|${approximate}|${eta_seconds}|${text}"
+}
+get_media_duration_seconds() {
+    local input_file="$1"
+    local duration_raw
+    duration_raw="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${input_file}" 2>/dev/null || true)"
+    if [[ "${duration_raw}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+        echo "${duration_raw}"
+        return
+    fi
+    echo ""
+}
+calc_transcode_progress() {
+    local out_time_ms="$1"
+    local duration_seconds="$2"
+    local speed_value="$3"
+    awk -v out_ms="${out_time_ms}" -v duration="${duration_seconds}" -v speed="${speed_value}" '
+        BEGIN {
+            if (duration <= 0) {
+                print "95 -1";
+                exit;
+            }
+            out = out_ms / 1000000.0;
+            if (out < 0) out = 0;
+            if (out > duration) out = duration;
+            percent = int((out / duration) * 100 + 0.5);
+            if (percent < 0) percent = 0;
+            if (percent > 100) percent = 100;
+
+            eta = -1;
+            if (speed > 0) {
+                remaining = duration - out;
+                if (remaining < 0) remaining = 0;
+                eta = int((remaining / speed) + 0.5);
+            }
+            printf "%d %d", percent, eta;
+        }
+    '
+}
+transcode_mp4_file_dense() {
+    local input_file="$1"
+    local temp_file="${input_file%.*}.yt-transcode.tmp.mp4"
+    local duration_seconds
+    local original_bytes
+    local compressed_bytes
+    local ffmpeg_status=0
+
+    echo "[yt] Transcoding for mobile+size: ${input_file}"
+    duration_seconds="$(get_media_duration_seconds "${input_file}")"
+    emit_progress_event "processing" 1 1 "" "Processing downloaded media..."
+
+    set +e
+    ffmpeg -y -hide_banner -loglevel error \
+        -i "${input_file}" \
+        -c:v libx264 \
+        -preset "${TRANSCODE_PRESET}" \
+        -crf "${TRANSCODE_CRF}" \
+        -pix_fmt yuv420p \
+        -profile:v high \
+        -level 4.1 \
+        -c:a aac \
+        -b:a "${TRANSCODE_AUDIO_BITRATE}" \
+        -ac 2 \
+        -movflags +faststart \
+        -progress pipe:1 \
+        -nostats \
+        "${temp_file}" 2>/dev/null | {
+            last_percent=-1
+            current_out_ms=0
+            current_speed=""
+            while IFS='=' read -r key value; do
+                case "${key}" in
+                    out_time_ms)
+                        if [[ "${value}" =~ ^[0-9]+$ ]]; then
+                            current_out_ms="${value}"
+                        fi
+                        ;;
+                    speed)
+                        current_speed="${value%x}"
+                        ;;
+                    progress)
+                        metrics="$(calc_transcode_progress "${current_out_ms}" "${duration_seconds:-0}" "${current_speed:-0}")"
+                        metrics_percent="${metrics%% *}"
+                        metrics_eta="${metrics##* }"
+                        if [[ "${metrics_percent}" -gt "${last_percent}" ]]; then
+                            if [[ "${metrics_eta}" -ge 0 ]]; then
+                            emit_progress_event "processing" "${metrics_percent}" 1 "${metrics_eta}" "Processing downloaded media..."
+                        else
+                                emit_progress_event "processing" "${metrics_percent}" 1 "" "Processing downloaded media..."
+                            fi
+                            last_percent="${metrics_percent}"
+                        fi
+                        if [[ "${value}" == "end" ]]; then
+                            emit_progress_event "processing" 100 1 0 "Processing downloaded media..."
+                        fi
+                        ;;
+                esac
+            done
+        }
+    ffmpeg_status="${PIPESTATUS[0]}"
+    set -e
+
+    if [[ "${ffmpeg_status}" -ne 0 ]]; then
+        echo "[yt] Transcode failed, keeping original: ${input_file}" >&2
+        rm -f "${temp_file}"
+        return
+    fi
+
+    original_bytes="$(bytes_count "${input_file}")"
+    compressed_bytes="$(bytes_count "${temp_file}")"
+
+    if [[ "${compressed_bytes}" -lt "${original_bytes}" ]]; then
+        mv -f "${temp_file}" "${input_file}"
+        echo "[yt] Transcoding done (smaller): ${input_file}"
+    else
+        rm -f "${temp_file}"
+        echo "[yt] Keeping original (already smaller): ${input_file}"
+    fi
+}
+transcode_downloaded_files_if_needed() {
+    local marker_file="$1"
+    local had_candidates=0
+
+    if [[ "${TRANSCODE_DENSE}" != "1" ]]; then
+        return
+    fi
+
+    emit_progress_event "processing" 1 1 "" "Processing downloaded media..."
+    echo "[yt] Transcoding downloaded files for compact mobile playback..."
+    while IFS= read -r -d '' mp4_file; do
+        had_candidates=1
+        transcode_mp4_file_dense "${mp4_file}"
+    done < <(find "${OUTPUT_DIR}" -type f -name "*.mp4" -newer "${marker_file}" -print0)
+
+    if [[ "${had_candidates}" == "0" ]]; then
+        echo "[yt] No new MP4 files to transcode."
+    fi
+}
 
 if [[ $# -lt 1 ]]; then
     usage
@@ -41,11 +202,36 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${YT_OUTPUT_DIR:-${SCRIPT_DIR}/youtube}"
-MAX_HEIGHT="${MAX_HEIGHT:-480}"
+TARGET_HEIGHT="${TARGET_HEIGHT:-360}"
+MAX_HEIGHT="${MAX_HEIGHT:-360}"
+TRANSCODE_DENSE="${TRANSCODE_DENSE:-1}"
+TRANSCODE_CRF="${TRANSCODE_CRF:-25}"
+TRANSCODE_PRESET="${TRANSCODE_PRESET:-slow}"
+TRANSCODE_AUDIO_BITRATE="${TRANSCODE_AUDIO_BITRATE:-96k}"
+DOWNLOAD_MARKER_FILE="$(mktemp "${TMPDIR:-/tmp}/yt-download-marker.XXXXXX")"
+cleanup() {
+    rm -f "${DOWNLOAD_MARKER_FILE}"
+}
+trap cleanup EXIT
 
-if ! [[ "${MAX_HEIGHT}" =~ ^[0-9]+$ ]] || [[ "${MAX_HEIGHT}" -lt 1 ]]; then
+if ! validate_positive_int "${TARGET_HEIGHT}"; then
+    echo "Error: TARGET_HEIGHT must be a positive integer." >&2
+    exit 1
+fi
+if ! validate_positive_int "${MAX_HEIGHT}"; then
     echo "Error: MAX_HEIGHT must be a positive integer." >&2
     exit 1
+fi
+if ! validate_bool_flag "${TRANSCODE_DENSE}"; then
+    echo "Error: TRANSCODE_DENSE must be 0 or 1." >&2
+    exit 1
+fi
+if ! validate_positive_int "${TRANSCODE_CRF}"; then
+    echo "Error: TRANSCODE_CRF must be a positive integer." >&2
+    exit 1
+fi
+if [[ "${TARGET_HEIGHT}" -gt "${MAX_HEIGHT}" ]]; then
+    TARGET_HEIGHT="${MAX_HEIGHT}"
 fi
 
 require_cmd ffmpeg
@@ -62,7 +248,10 @@ fi
 
 mkdir -p "${OUTPUT_DIR}"
 
-FORMAT_SELECTOR="bv*[height<=${MAX_HEIGHT}]+ba/b[height<=${MAX_HEIGHT}]/b"
+# Prefer compact progressive MP4 near TARGET_HEIGHT first,
+# then fallback to split H.264/AAC streams when progressive MP4 is unavailable.
+# `18` is the classic YouTube 360p progressive MP4 (very mobile-friendly).
+FORMAT_SELECTOR="b[height<=${TARGET_HEIGHT}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/18/b[height<=${TARGET_HEIGHT}][ext=mp4]/bv*[height<=${TARGET_HEIGHT}][vcodec^=avc1][ext=mp4]+ba[acodec^=mp4a][ext=m4a]/b[height<=${MAX_HEIGHT}][ext=mp4][vcodec^=avc1][acodec^=mp4a]/bv*[height<=${MAX_HEIGHT}][vcodec^=avc1][ext=mp4]+ba[acodec^=mp4a][ext=m4a]"
 OUTPUT_TEMPLATE="${OUTPUT_DIR}/%(title).180B [%(id)s].%(ext)s"
 
 echo "[yt] Downloading ${#@} URL(s) to ${OUTPUT_DIR}"
@@ -77,6 +266,9 @@ if [[ "${DOWNLOADER}" == "yt-dlp" ]]; then
     EXTRA_ARGS=(
         --merge-output-format mp4
         --remux-video mp4
+        --postprocessor-args "Merger+VideoRemuxer:-movflags +faststart"
+        --progress-template "download:[yt-progress] downloading|%(progress._percent_str)s|0|%(progress.eta)s|Downloading media..."
+        --progress-template "postprocess:[yt-progress] processing|5|1||Processing downloaded media..."
         --extractor-retries 3
         --retries 3
     )
@@ -98,10 +290,15 @@ if ! "${DOWNLOADER}" "${COMMON_ARGS[@]}" "${EXTRA_ARGS[@]}" "$@"; then
     exit 1
 fi
 
+transcode_downloaded_files_if_needed "${DOWNLOAD_MARKER_FILE}"
+
+emit_progress_event "indexing" 0 1 "" "Refreshing library index..."
 echo "[yt] Rebuilding library index..."
 (
     cd "${SCRIPT_DIR}"
     node build.js
 )
+emit_progress_event "indexing" 100 1 0 "Refreshing library index..."
 
+emit_progress_event "done" 100 0 0 "Completed."
 echo "[yt] Done."

@@ -17,14 +17,14 @@ function usage() {
     console.log(`Usage: node server.js [--host ADDRESS] [--port PORT]
 
 Options:
-  --host ADDRESS   Bind address (default: 127.0.0.1)
+  --host ADDRESS   Bind address (default: 0.0.0.0)
   --port PORT      Port number (default: 8081)
   -h, --help       Show this help
 `);
 }
 
 function parseArgs(argv) {
-    let host = '127.0.0.1';
+    let host = '0.0.0.0';
     let port = 8081;
 
     for (let index = 0; index < argv.length; index += 1) {
@@ -293,6 +293,24 @@ function resolveTargetDirectory(targetPathValue) {
     }
     return absolute;
 }
+function resolveLibraryPathInsideRoot(pathValue) {
+    const raw = typeof pathValue === 'string' ? pathValue.trim() : '';
+    const normalized = raw
+        .replace(/\\/g, '/')
+        .replace(/^\/+/, '')
+        .replace(/\/+/g, '/')
+        .replace(/\/+$/, '');
+
+    const absolute = path.resolve(ROOT_DIR, normalized || '.');
+    const rootWithSep = ROOT_DIR.endsWith(path.sep) ? ROOT_DIR : `${ROOT_DIR}${path.sep}`;
+    if (absolute !== ROOT_DIR && !absolute.startsWith(rootWithSep)) {
+        return null;
+    }
+    return {
+        normalized,
+        absolute
+    };
+}
 
 const PROGRESS_PHASE_ORDER = new Map([
     ['queued', 0],
@@ -311,18 +329,22 @@ function clampPercent(value) {
     return value;
 }
 
-function createJobProgress(phase, percent, text, approximate = false) {
+function createJobProgress(phase, percent, text, approximate = false, etaSeconds = null) {
+    const normalizedEta = Number.isFinite(etaSeconds) && etaSeconds >= 0
+        ? Math.floor(etaSeconds)
+        : null;
     return {
         phase,
         percent: clampPercent(percent),
         text,
-        approximate
+        approximate,
+        etaSeconds: normalizedEta
     };
 }
 
-function setJobProgress(job, phase, percent, text, approximate = false) {
+function setJobProgress(job, phase, percent, text, approximate = false, etaSeconds = null) {
     if (!job.progress) {
-        job.progress = createJobProgress(phase, percent, text, approximate);
+        job.progress = createJobProgress(phase, percent, text, approximate, etaSeconds);
         return;
     }
 
@@ -334,8 +356,12 @@ function setJobProgress(job, phase, percent, text, approximate = false) {
         phase,
         percent,
         text || job.progress.text,
-        approximate
+        approximate,
+        etaSeconds
     );
+    if (nextProgress.etaSeconds === null && nextRank === currentRank) {
+        nextProgress.etaSeconds = job.progress.etaSeconds;
+    }
     if (nextRank === currentRank && nextProgress.percent < job.progress.percent) {
         return;
     }
@@ -348,11 +374,90 @@ function getOverallDownloadPercent(job, partPercent) {
     const partSeen = Math.max(1, job.downloadPartSeen || 1);
     const completedPartCount = Math.max(0, Math.min(partSeen - 1, partTotal));
     const fraction = (completedPartCount + (safePartPercent / 100)) / partTotal;
-    return Math.max(1, Math.min(92, Math.round(fraction * 92)));
+    return Math.max(1, Math.min(100, Math.round(fraction * 100)));
+}
+function mapPhasePercentToOverallPercent(phase, phasePercent) {
+    const p = clampPercent(phasePercent);
+    switch (phase) {
+        case 'queued':
+            return 0;
+        case 'starting':
+            return Math.round(p * 0.02); // 0..2
+        case 'downloading':
+            return Math.round(p * 0.5); // 0..50
+        case 'processing':
+            return Math.round(50 + (p * 0.45)); // 50..95
+        case 'indexing':
+            return Math.round(95 + (p * 0.04)); // 95..99
+        case 'done':
+            return 100;
+        case 'failed':
+            return p;
+        default:
+            return p;
+    }
+}
+function parseClockEtaToSeconds(rawEta) {
+    if (typeof rawEta !== 'string') return null;
+    const token = rawEta.trim();
+    if (!/^\d{1,2}:\d{2}(?::\d{2})?$/.test(token)) return null;
+    const parts = token.split(':').map((value) => Number(value));
+    if (parts.some((value) => !Number.isFinite(value))) return null;
+    if (parts.length === 2) {
+        return (parts[0] * 60) + parts[1];
+    }
+    return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+}
+function parsePercentValue(rawPercent) {
+    if (typeof rawPercent !== 'string') return null;
+    const normalized = rawPercent.trim().replace('%', '').replace(',', '.');
+    if (normalized === '') return null;
+    const value = Number(normalized);
+    if (!Number.isFinite(value)) return null;
+    return clampPercent(value);
+}
+function parseYtProgressEvent(line) {
+    const match = /^\[yt-progress\]\s+([^|]+)\|([^|]+)\|([^|]+)\|([^|]*)\|(.*)$/.exec(line);
+    if (!match) return null;
+    const phase = String(match[1] || '').trim();
+    const percentRaw = String(match[2] || '');
+    const percent = parsePercentValue(percentRaw);
+    const approximate = String(match[3]).trim() === '1';
+    const etaRaw = String(match[4] || '').trim();
+    const text = String(match[5] || '').trim();
+    const etaSeconds = /^\d+$/.test(etaRaw)
+        ? Number(etaRaw)
+        : parseClockEtaToSeconds(etaRaw);
+    if (!phase || !Number.isFinite(percent)) return null;
+    return {
+        phase,
+        percent,
+        approximate,
+        etaSeconds: Number.isFinite(etaSeconds) ? etaSeconds : null,
+        text
+    };
 }
 
 function updateJobProgressFromLogLine(job, line) {
     if (!line) return;
+
+    const ytProgressEvent = parseYtProgressEvent(line);
+    if (ytProgressEvent) {
+        let phasePercent = ytProgressEvent.percent;
+        if (ytProgressEvent.phase === 'downloading' && (job.downloadPartTotal || job.downloadPartSeen)) {
+            phasePercent = getOverallDownloadPercent(job, ytProgressEvent.percent);
+        }
+        const nextPercent = mapPhasePercentToOverallPercent(ytProgressEvent.phase, phasePercent);
+        setJobProgress(
+            job,
+            ytProgressEvent.phase,
+            nextPercent,
+            ytProgressEvent.text,
+            ytProgressEvent.approximate,
+            ytProgressEvent.etaSeconds
+        );
+        return;
+    }
 
     const formatMatch = line.match(/Downloading\s+\d+\s+format\(s\):\s*(.+)$/i);
     if (formatMatch) {
@@ -372,8 +477,9 @@ function updateJobProgressFromLogLine(job, line) {
         if (!job.downloadPartTotal || job.downloadPartTotal < job.downloadPartSeen) {
             job.downloadPartTotal = job.downloadPartSeen;
         }
-        const overallPercent = getOverallDownloadPercent(job, 0);
-        setJobProgress(job, 'downloading', overallPercent, 'Downloading media...', false);
+        const phasePercent = getOverallDownloadPercent(job, 0);
+        const overallPercent = mapPhasePercentToOverallPercent('downloading', phasePercent);
+        setJobProgress(job, 'downloading', overallPercent, 'Downloading media...', false, null);
         return;
     }
 
@@ -381,8 +487,11 @@ function updateJobProgressFromLogLine(job, line) {
     if (downloadPercentMatch) {
         if (!job.downloadPartSeen) job.downloadPartSeen = 1;
         const streamPercent = Number(downloadPercentMatch[1]);
-        const overallPercent = getOverallDownloadPercent(job, streamPercent);
-        setJobProgress(job, 'downloading', overallPercent, 'Downloading media...', false);
+        const phasePercent = getOverallDownloadPercent(job, streamPercent);
+        const overallPercent = mapPhasePercentToOverallPercent('downloading', phasePercent);
+        const etaMatch = line.match(/\bETA\s+([0-9:]+)/i);
+        const etaSeconds = etaMatch ? parseClockEtaToSeconds(etaMatch[1]) : null;
+        setJobProgress(job, 'downloading', overallPercent, 'Downloading media...', false, etaSeconds);
         return;
     }
 
@@ -391,22 +500,39 @@ function updateJobProgressFromLogLine(job, line) {
         || line.startsWith('[VideoRemuxer]')
         || line.startsWith('[ExtractAudio]')
     ) {
-        setJobProgress(job, 'processing', 95, 'Processing downloaded media...', true);
+        setJobProgress(job, 'processing', mapPhasePercentToOverallPercent('processing', 55), 'Processing downloaded media...', true, null);
+        return;
+    }
+
+    if (
+        line.startsWith('[yt] Transcoding downloaded files')
+        || line.startsWith('[yt] Transcoding for mobile+size:')
+    ) {
+        setJobProgress(job, 'processing', mapPhasePercentToOverallPercent('processing', 1), 'Processing downloaded media...', true, null);
+        return;
+    }
+
+    if (
+        line.startsWith('[yt] Transcoding done')
+        || line.startsWith('[yt] Keeping original (already smaller):')
+        || line.startsWith('[yt] No new MP4 files to transcode.')
+    ) {
+        setJobProgress(job, 'processing', mapPhasePercentToOverallPercent('processing', 100), 'Processing downloaded media...', true, null);
         return;
     }
 
     if (line.startsWith('[yt] Rebuilding library index...')) {
-        setJobProgress(job, 'indexing', 98, 'Refreshing library index...', true);
+        setJobProgress(job, 'indexing', mapPhasePercentToOverallPercent('indexing', 0), 'Refreshing library index...', true, null);
         return;
     }
 
     if (line.startsWith('[build] Library index updated:')) {
-        setJobProgress(job, 'indexing', 99, 'Refreshing library index...', true);
+        setJobProgress(job, 'indexing', mapPhasePercentToOverallPercent('indexing', 100), 'Refreshing library index...', true, null);
         return;
     }
 
     if (line.startsWith('[yt] Done.')) {
-        setJobProgress(job, 'done', 100, 'Completed.', false);
+        setJobProgress(job, 'done', 100, 'Completed.', false, 0);
     }
 }
 
@@ -549,9 +675,52 @@ function enqueueYouTubeDownload(urlValue, targetDir, targetPath) {
     return job;
 }
 
-async function handleApi(req, res, pathname) {
+async function handleApi(req, res, pathname, searchParams) {
     if (pathname === '/api/youtube/status' && req.method === 'GET') {
         sendJson(res, 200, buildStatusPayload());
+        return true;
+    }
+
+    if (pathname === '/api/folder-state' && req.method === 'GET') {
+        const requestedPath = searchParams.get('path') || '';
+        const resolvedPath = resolveLibraryPathInsideRoot(requestedPath);
+        if (!resolvedPath) {
+            sendJson(res, 400, { error: 'Invalid folder path' });
+            return true;
+        }
+
+        let folderStats;
+        try {
+            folderStats = await fsp.stat(resolvedPath.absolute);
+        } catch (_) {
+            folderStats = null;
+        }
+        if (!folderStats || !folderStats.isDirectory()) {
+            sendJson(res, 404, { error: 'Folder not found' });
+            return true;
+        }
+
+        let dirents = [];
+        try {
+            dirents = await fsp.readdir(resolvedPath.absolute, { withFileTypes: true });
+        } catch (_) {
+            sendJson(res, 500, { error: 'Unable to read folder' });
+            return true;
+        }
+
+        const entries = dirents
+            .filter((entry) => !entry.name.startsWith('.') && (entry.isDirectory() || entry.isFile()))
+            .map((entry) => ({
+                name: entry.name,
+                type: entry.isDirectory() ? 'folder' : 'file'
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+        sendJson(res, 200, {
+            ok: true,
+            path: resolvedPath.normalized,
+            entries
+        });
         return true;
     }
 
@@ -631,7 +800,7 @@ function start() {
 
         try {
             if (parsed.pathname.startsWith('/api/')) {
-                const handled = await handleApi(req, res, parsed.pathname);
+                const handled = await handleApi(req, res, parsed.pathname, parsed.searchParams);
                 if (!handled) sendText(res, 404, 'Not Found');
                 return;
             }

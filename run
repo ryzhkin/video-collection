@@ -10,7 +10,7 @@ Usage: ./run [-n] [-p PORT] [-a ADDRESS]
 Options:
   -n           Enable ngrok tunnel
   -p PORT      HTTP server port (default: 8081)
-  -a ADDRESS   Bind address for built-in web server (default: 127.0.0.1)
+  -a ADDRESS   Bind address for built-in web server (default: 0.0.0.0)
 EOF
 }
 
@@ -30,7 +30,7 @@ is_valid_port() {
 
 use_ngrok=false
 port=8081
-address="127.0.0.1"
+address="0.0.0.0"
 ngrok_pid=""
 
 while getopts ":np:a:h" opt; do
